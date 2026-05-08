@@ -19,7 +19,8 @@ class MA_Cross(Strategy):
         self.slow = slow
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
+
         df["ma_fast"] = df["close"].rolling(self.fast).mean()
         df["ma_slow"] = df["close"].rolling(self.slow).mean()
 
@@ -28,7 +29,6 @@ class MA_Cross(Strategy):
 
         # 信号：仓位变化时产生交易
         df["signal"] = df["position"].diff().fillna(0).astype(int)
-        # signal: 1=买入, -1=卖出, 0=持有
 
         return df[["open", "high", "low", "close", "volume",
                     "ma_fast", "ma_slow", "position", "signal"]]
@@ -47,7 +47,7 @@ class MACD_Strat(Strategy):
         self.signal = signal
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
 
         ema_fast = df["close"].ewm(span=self.fast, adjust=False).mean()
         ema_slow = df["close"].ewm(span=self.slow, adjust=False).mean()
@@ -74,7 +74,7 @@ class Breakout_20(Strategy):
         self.lookback = lookback
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
         df["highest"] = df["high"].rolling(self.lookback).max()
         df["lowest"] = df["low"].rolling(self.lookback).min()
 

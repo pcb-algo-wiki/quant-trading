@@ -20,7 +20,7 @@ class RSI_Strat(Strategy):
         self.overbought = overbought
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
 
         delta = df["close"].diff()
         gain = delta.where(delta > 0, 0).rolling(self.period).mean()
@@ -35,7 +35,7 @@ class RSI_Strat(Strategy):
         df["signal"] = df["position"].diff().fillna(0).astype(int)
 
         return df[["open", "high", "low", "close", "volume",
-                    "rsi", "position", "signal"]]
+                    "rsi", "position", "signal"]].reset_index(drop=True)
 
 
 class BollingerBand(Strategy):
@@ -50,7 +50,7 @@ class BollingerBand(Strategy):
         self.std_dev = std_dev
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
 
         df["mid"] = df["close"].rolling(self.period).mean()
         df["std"] = df["close"].rolling(self.period).std()
@@ -64,7 +64,7 @@ class BollingerBand(Strategy):
         df["signal"] = df["position"].diff().fillna(0).astype(int)
 
         return df[["open", "high", "low", "close", "volume",
-                    "mid", "upper", "lower", "position", "signal"]]
+                    "mid", "upper", "lower", "position", "signal"]].reset_index(drop=True)
 
 
 class KD_Strat(Strategy):
@@ -80,7 +80,7 @@ class KD_Strat(Strategy):
         self.m2 = m2
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
-        df = data.copy()
+        df = data.copy().reset_index(drop=True)
 
         low_n = df["low"].rolling(self.n).min()
         high_n = df["high"].rolling(self.n).max()
@@ -97,4 +97,4 @@ class KD_Strat(Strategy):
         df["signal"] = df["position"].diff().fillna(0).astype(int)
 
         return df[["open", "high", "low", "close", "volume",
-                    "k", "d", "j", "position", "signal"]]
+                    "k", "d", "j", "position", "signal"]].reset_index(drop=True)
