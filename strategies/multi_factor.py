@@ -422,14 +422,17 @@ def quick_backtest(
         date = px.at[i, "date"] if "date" in px.columns else i
         target_pos = sig.at[i, "position"]
 
-        # 交易
-        if target_pos > position and position == 0:  # 买入
+        # 仓位二值化：>0.5持仓，<=0.5空仓
+        binary_target = 1 if target_pos > 0.5 else 0
+
+        # 交易（只有从0→1或1→0才操作）
+        if binary_target == 1 and position == 0:  # 买入
             cost = equity * (1 - commission - slippage)
             position = 1
             entry_price = close * (1 + slippage)
             equity = cost
 
-        elif target_pos < position and position > 0:  # 卖出
+        elif binary_target == 0 and position == 1:  # 卖出
             proceeds = equity * (close / entry_price) * (1 - commission - slippage)
             pnl = proceeds - equity
             equity = proceeds

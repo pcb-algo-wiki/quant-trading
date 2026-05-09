@@ -56,41 +56,50 @@ def compute_spread_signal(
     close = equity_price["close"]
 
     if "date" in equity_price.columns:
-        dates = pd.to_datetime(equity_price["date"]).dt.date
+        dates = pd.to_datetime(equity_price["date"])
     else:
-        dates = pd.to_datetime(equity_price.index).dt.date
+        dates = pd.to_datetime(equity_price.index)
 
-    # 估算盈利收益率 E/P
+    # 估算盈利收益率 E/P（返回小数，如0.083表示8.3%）
     base_price = close.iloc[0]
-    ep = pe_base * (close / base_price)  # 简化：PE与价格成正比
-    ep_series = ep.values
+    pe_estimate = pe_base * (close / base_price)
+    ep_series = 1.0 / (pe_estimate + 1e-10)  # E/P，范围0.05~0.15
 
-    # 找共同日期
-    bond_dates = pd.to_datetime(bond_yield.index).date
-    common = set(dates) & set(bond_dates)
+    # bond_yield是百分比形式（如3.8表示3.8%），转为小数（0.038）
+    bond_yield_decimal = bond_yield / 100.0
+
+    # 找共同日期（都用Timestamp比较）
+    bond_dates_ts = pd.to_datetime(bond_yield.index)
+    dates_ts = dates
+    common = set(dates_ts) & set(bond_dates_ts)
     if len(common) == 0:
         return pd.DataFrame({"position": 0})
 
-    # 对齐
+    # 对齐：用Timestamp
     spread_vals = []
-    date_vals = []
+    date_vals = []  # Timestamp
     close_vals = []
     by_vals = []
 
-    for i, d in enumerate(dates):
+    dates_list = dates_ts.tolist()
+    for i, d in enumerate(dates_list):
         if d in common:
-            bond_vals = bond_yield.loc[pd.to_datetime(d):].values
-            if len(bond_vals) > 0:
-                spread_vals.append(ep_series[i] - bond_vals[0] / 100.0)
-                date_vals.append(d)
-                close_vals.append(close.values[i])
-                by_vals.append(bond_vals[0])
+            # 找对应的国债收益率
+            bond_idx = bond_yield.index[bond_yield.index == d]
+            if len(bond_idx) == 0:
+                continue
+            by = bond_yield_decimal.iloc[bond_yield.index.get_loc(bond_idx[0])]
+            ep = ep_series.iloc[i]
+            spread_vals.append(ep - by)  # 利差（单位一致：小数）
+            date_vals.append(d)
+            close_vals.append(close.values[i])
+            by_vals.append(by * 100)  # 存回百分比形式
 
     if not spread_vals:
         return pd.DataFrame({"position": 0})
 
-    spread = pd.Series(spread_vals, index=pd.to_datetime(date_vals))
-    close_aligned = pd.Series(close_vals, index=pd.to_datetime(date_vals))
+    spread = pd.Series(spread_vals, index=date_vals)
+    close_aligned = pd.Series(close_vals, index=date_vals)
 
     # 利差Z-score
     spread_ma = spread.rolling(20).mean()
@@ -108,6 +117,7 @@ def compute_spread_signal(
         "date": date_vals,
         "close": close_vals,
         "bond_yield": by_vals,
+        # 盈利收益率（E/P）：基准PE=12时约为8.3%，转为小数形式以便与国债收益率比较
         "equity_yield": [e * 100 for e in ep_series[:len(date_vals)]],
         "spread": spread_vals,
         "spread_zscore": zscore.values,
@@ -161,22 +171,32 @@ class StockBondRotationStrategy:
         # 计算利差信号
         spread_df = compute_spread_signal(stock_data, bond_yield)
         if spread_df.empty:
-            return pd.DataFrame({"position": [0] * len(stock_data)})
+            return pd.DataFrame({
+                "date": stock_data["date"].values if "date" in stock_data.columns else stock_data.index,
+                "close": stock_data["close"].values,
+                "position": [0] * len(stock_data),
+                "signal": [0] * len(stock_data),
+            })
 
         close = stock_data["close"]
         if "date" in stock_data.columns:
-            dates = stock_data["date"].values
+            stock_dates = pd.to_datetime(stock_data["date"]).values
         else:
-            dates = stock_data.index
+            stock_dates = pd.to_datetime(stock_data.index).values
+
+        # 用spread_df的日期作为基准（国债和股票日期对齐的部分）
+        spread_dates = pd.to_datetime(spread_df["date"]).values
+        spread_positions = spread_df["position"].values
 
         # 趋势信号
         ma20 = close.rolling(20).mean()
         ma60 = close.rolling(60).mean()
         trend = (ma20 > ma60).astype(float).values
 
-        # 模式选择
+        # 模式选择：用spread_df的长度作为position长度
+        n_spread = len(spread_df)
         if self.mode == "spread":
-            position = spread_df["position"].values
+            position = spread_positions
         elif self.mode == "trend_spread":
             zscore = spread_df["spread_zscore"].values
             pos = pd.Series(0.5, index=range(len(zscore)))
@@ -203,18 +223,19 @@ class StockBondRotationStrategy:
         signal = position_series.diff().fillna(0)
         signal = signal.apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
 
+        # 用spread_df的日期作为基准
         result = pd.DataFrame({
-            "date": dates,
-            "close": close.values[:len(dates)],
+            "date": spread_df["date"].values,
+            "close": spread_df["close"].values,
             "position": position,
             "signal": signal.values,
         })
 
         # 加入利差信息
-        if not spread_df.empty and len(spread_df) == len(result):
+        if not spread_df.empty:
             result["spread_zscore"] = spread_df["spread_zscore"].values
             result["bond_yield"] = spread_df["bond_yield"].values
-            result["equity_yield"] = spread_df["equity_yield"].values[:len(result)]
+            result["equity_yield"] = spread_df["equity_yield"].values
 
         return result.reset_index(drop=True)
 
