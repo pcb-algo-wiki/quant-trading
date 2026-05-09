@@ -134,10 +134,33 @@ def get_fund_flow_signal(etf: str = "159915") -> dict:
         return {"signal": "neutral", "error": str(e)}
 
 
+def get_pcr_signals_data() -> dict:
+    """获取期权PCR情绪信号"""
+    try:
+        from data.option_signals import get_pcr_signals, get_pcr_signal_510300, check_volatility_regime
+
+        sig = get_pcr_signal_510300()
+        vol = check_volatility_regime()
+
+        return {
+            "510300_pcr": sig.get("pcr", None),
+            "510300_oi_pcr": sig.get("oi_pcr", None),
+            "510300_signal": sig.get("signal", "unknown"),
+            "510300_score": sig.get("signal_score", 0),
+            "510300_interp": sig.get("interpretation", ""),
+            "vol_regime": vol.get("regime", "unknown"),
+            "vol_avg_pcr": float(vol.get("avg_pcr", 0)) if vol.get("avg_pcr") is not None else None,
+            "vol_desc": vol.get("description", ""),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def build_report(
     strategy_results: dict,
     sentiment: dict,
     fund_flow: dict,
+    pcr_data: dict = None,
 ) -> dict:
     """构建报告数据"""
 
@@ -171,12 +194,31 @@ def build_report(
     flow_sig = fund_flow.get("signal", "neutral")
     flow_label = {"bullish": "🟢主力净流入", "bearish": "🔴主力净流出", "neutral": "⚪中性"}.get(flow_sig, "⚪中性")
 
+    # PCR情绪
+    pcr_label = ""
+    pcr_score = 0
+    if pcr_data and not pcr_data.get("error"):
+        score = pcr_data.get("510300_score", 0)
+        pcr_score = score
+        if score >= 2:
+            pcr_label = "🟢极度看多"
+        elif score == 1:
+            pcr_label = "🟢偏多"
+        elif score == 0:
+            pcr_label = "⚪中性"
+        elif score == -1:
+            pcr_label = "🔴偏空"
+        else:
+            pcr_label = "🔴极度看空"
+
     report = {
         "title": f"量化日报 {date.today().strftime('%Y-%m-%d')}",
         "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "composite_signal": composite,
         "market_sentiment": sent_label,
         "fund_flow": flow_label,
+        "pcr_label": pcr_label,
+        "pcr_data": pcr_data or {},
         "news_count": sentiment.get("news_count", 0),
         "strategies": [],
     }
@@ -215,6 +257,16 @@ def print_report(report: dict):
     print(f"  综合信号: {report['composite_signal']}")
     print(f"  市场情绪: {report['market_sentiment']} ({report['news_count']}条新闻)")
     print(f"  资金流向: {report['fund_flow']}")
+    pcr_label = report.get('pcr_label', '')
+    if pcr_label:
+        print(f"  期权PCR: {pcr_label}")
+        pcr_data = report.get('pcr_data', {})
+        if pcr_data.get('510300_pcr'):
+            interp = pcr_data.get('510300_interp', '')
+            print(f"           沪深300 vol_PCR={pcr_data['510300_pcr']:.3f}  oi_PCR={pcr_data.get('510300_oi_pcr', 0):.3f}  {interp}")
+        vol_desc = pcr_data.get('vol_desc', '')
+        if vol_desc:
+            print(f"           {vol_desc}")
     print()
     print(f"  {'标的':<10} {'信号':>5} {'最新价':>8} {'MA15':>8} {'MA20':>8} {'5日':>8} {'今年来':>8}")
     print(f"  {'-'*60}")
@@ -231,6 +283,14 @@ def push_report(report: dict) -> bool:
         from utils.notify import notify
         import requests
 
+        # PCR信息
+        pcr_data = report.get('pcr_data', {})
+        pcr_line = ""
+        if pcr_data.get('510300_pcr'):
+            pcr_line = (f"<p>期权PCR | vol_PCR={pcr_data['510300_pcr']:.3f} | "
+                        f"oi_PCR={pcr_data.get('510300_oi_pcr', 0):.3f} | "
+                        f"{pcr_data.get('510300_interp', '')}</p>")
+
         # 构建HTML内容
         lines = [
             f"<h2>📊 {report['title']}</h2>",
@@ -239,6 +299,7 @@ def push_report(report: dict) -> bool:
             f"<p>情绪: {report['market_sentiment']} | "
             f"新闻: {report['news_count']}条 | "
             f"资金: {report['fund_flow']}</p>",
+            pcr_line,
             "<table border='1' cellpadding='6' style='border-collapse:collapse;width:100%'>",
             "<tr style='background:#f5f5f5'>"
             "<th>标的</th><th>信号</th><th>最新价</th>"
@@ -303,12 +364,24 @@ def main():
     print(f"  信号: {fund_flow.get('signal', '?')} | "
           f"评分: {fund_flow.get('score', 0):.3f}")
 
-    # 4. 构建报告
+    # 4. PCR情绪
+    print("\n⏳ 获取期权PCR情绪...")
+    pcr_data = get_pcr_signals_data()
+    if pcr_data.get("error"):
+        print(f"  PCR: 获取失败 ({pcr_data.get('error')})")
+    else:
+        print(f"  沪深300: vol_PCR={pcr_data.get('510300_pcr', 'N/A')}  "
+              f"oi_PCR={pcr_data.get('510300_oi_pcr', 'N/A')}  "
+              f"信号={pcr_data.get('510300_signal', '?')}  "
+              f"{pcr_data.get('510300_interp', '')}")
+        print(f"  波动率: {pcr_data.get('vol_desc', 'N/A')}")
+
+    # 5. 构建报告
     print("\n⏳ 构建报告...")
-    report = build_report(strategy_results, sentiment, fund_flow)
+    report = build_report(strategy_results, sentiment, fund_flow, pcr_data)
     print_report(report)
 
-    # 5. 推送
+    # 6. 推送
     if args.push or not args.no_push:
         push_token = os.environ.get("PUSHPLUS_TOKEN", "")
         if push_token:
