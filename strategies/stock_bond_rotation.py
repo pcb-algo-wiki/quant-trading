@@ -68,9 +68,9 @@ def compute_spread_signal(
     # bond_yield是百分比形式（如3.8表示3.8%），转为小数（0.038）
     bond_yield_decimal = bond_yield / 100.0
 
-    # 找共同日期（都用Timestamp比较）
-    bond_dates_ts = pd.to_datetime(bond_yield.index)
-    dates_ts = dates
+    # 找共同日期（用dt.date去掉时间，只比较日期）
+    bond_dates_ts = pd.to_datetime(pd.Series(bond_yield.index)).dt.date
+    dates_ts = dates.dt.date
     common = set(dates_ts) & set(bond_dates_ts)
     if len(common) == 0:
         return pd.DataFrame({
@@ -87,8 +87,8 @@ def compute_spread_signal(
     dates_list = dates_ts.tolist()
     for i, d in enumerate(dates_list):
         if d in common:
-            # 找对应的国债收益率
-            bond_idx = bond_yield.index[bond_yield.index == d]
+            # 找对应的国债收益率（用dt.date比较）
+            bond_idx = bond_yield.index[pd.to_datetime(pd.Series(bond_yield.index)).dt.date == d]
             if len(bond_idx) == 0:
                 continue
             by = bond_yield_decimal.iloc[bond_yield.index.get_loc(bond_idx[0])]
