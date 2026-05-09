@@ -24,6 +24,9 @@ from strategies.trend import MA_Cross, MACD_Strat, Breakout_20
 from strategies.mean_reversion import RSI_Strat, BollingerBand, KD_Strat
 from strategies.multi_factor import TripleFactorStrategy, MomentumFactorStrategy, quick_backtest
 from strategies.stock_bond_rotation import StockBondRotationStrategy, load_tnx
+from strategies.ensemble import (
+    EnsembleStrategy, AdaptiveEnsemble, VotingEnsemble, RegimeSwitchingEnsemble
+)
 from backtest.engine import BacktestEngine
 from backtest.risk import BacktestEngineV2, PositionConfig
 
@@ -280,6 +283,41 @@ def run_rotation_backtest(start="20230101", end="20241231"):
               f"{r2['n_trades']:>6}")
 
 
+def run_ensemble_backtest(start="20230101", end="20241231"):
+    """集成策略回测"""
+    print("\n" + "=" * 65)
+    print(f"  集成策略回测 ({start} ~ {end})")
+    print("=" * 65)
+
+    from strategies.multi_factor import quick_backtest
+
+    strats = {
+        "Ensemble(等权)": EnsembleStrategy(),
+        "AdaptiveEnsemble(自适应)": AdaptiveEnsemble(),
+        "VotingEnsemble(投票)": VotingEnsemble(),
+        "RegimeSwitching(状态切换)": RegimeSwitchingEnsemble(),
+    }
+
+    for etf, etf_name in ETFS.items():
+        df = fetch_etf(etf, start, end)
+        if len(df) < 50:
+            continue
+
+        buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+        print(f"\n  {etf_name}({etf}) - 买入持有: {buyhold*100:.2f}%")
+        print(f"  {'策略':<25} {'总收益':>8} {'夏普':>7} {'交易':>6}")
+        print(f"  {'-'*55}")
+
+        for name, strat in strats.items():
+            try:
+                sig = strat.generate(df)
+                res = quick_backtest(df, sig)
+                print(f"  {name:<25} {res['total_return']:>7.2f}% "
+                      f"{res['sharpe']:>7.2f} {res['n_trades']:>5}")
+            except Exception as e:
+                print(f"  {name:<25} ERROR: {str(e)[:30]}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="量化交易系统 v2")
     parser.add_argument("--strategy", default="all", help="策略名")
@@ -292,6 +330,7 @@ def main():
     parser.add_argument("--wf", action="store_true", help="Walk-forward分析")
     parser.add_argument("--multifactor", action="store_true", help="多因子策略")
     parser.add_argument("--rotation", action="store_true", help="股债轮动策略")
+    parser.add_argument("--ensemble", action="store_true", help="集成策略")
     parser.add_argument("--start", default="20230101", help="开始日期")
     parser.add_argument("--end", default="20241231", help="结束日期")
 
@@ -306,6 +345,8 @@ def main():
         run_multifactor_backtest(args.start, args.end)
     elif args.rotation:
         run_rotation_backtest(args.start, args.end)
+    elif args.ensemble:
+        run_ensemble_backtest(args.start, args.end)
     elif args.etf:
         run_etf_backtest(args.start, args.end, args.risk)
     elif args.compare:
