@@ -156,11 +156,53 @@ def get_pcr_signals_data() -> dict:
         return {"error": str(e)}
 
 
+def get_stock_picks() -> dict:
+    """
+    获取个股精选（从缓存读取，秒级）
+    返回各板块Top3 Buy信号个股
+    """
+    try:
+        from data.stock_screener import get_top_picks
+
+        sectors = {
+            "AI算力": "AI算力",
+            "AI应用": "AI应用",
+            "光通信": "光通信",
+            "通信设备": "通信设备",
+            "半导体": "半导体",
+            "新能源车": "新能源车",
+            "军工": "军工",
+            "消费": "消费",
+            "金融": "金融",
+        }
+
+        picks = {}
+        for label, sector in sectors.items():
+            df = get_top_picks(n=3, sector=sector)
+            if df is not None and not df.empty:
+                buys = df[df['signal'] == 'Buy'].head(3)
+                if not buys.empty:
+                    picks[label] = [
+                        {
+                            "name": row['name'],
+                            "score": round(row['score'], 1),
+                            "ret20d": f"{row['ret_20d']:.1f}%" if row.get('ret_20d') else "N/A",
+                        }
+                        for _, row in buys.iterrows()
+                    ]
+
+        total_buys = sum(len(v) for v in picks.values())
+        return {"picks": picks, "total_buys": total_buys, "error": None}
+    except Exception as e:
+        return {"picks": {}, "total_buys": 0, "error": str(e)}
+
+
 def build_report(
     strategy_results: dict,
     sentiment: dict,
     fund_flow: dict,
     pcr_data: dict = None,
+    stock_picks: dict = None,
 ) -> dict:
     """构建报告数据"""
 
@@ -220,6 +262,7 @@ def build_report(
         "pcr_label": pcr_label,
         "pcr_data": pcr_data or {},
         "news_count": sentiment.get("news_count", 0),
+        "stock_picks": stock_picks or {},
         "strategies": [],
     }
 
@@ -274,6 +317,16 @@ def print_report(report: dict):
         print(f"  {s['name']:<10} {s['signal']:>5} {s['price']:>8.3f} "
               f"{s['ma_fast']:>8.3f} {s['ma_slow']:>8.3f} "
               f"{s['recent_5d']:>8} {s['ytd']:>8}")
+
+    # 个股精选
+    stock_picks = report.get('stock_picks', {})
+    if stock_picks.get('picks') and not stock_picks.get('error'):
+        print()
+        print(f"  {'─'*60}")
+        print(f"  📈 个股精选（共{stock_picks.get('total_buys', 0)}只Buy信号）")
+        for sector, stocks in stock_picks['picks'].items():
+            names = ' / '.join([f"{s['name']}({s['score']}分)" for s in stocks])
+            print(f"  {sector:<8}: {names}")
     print("=" * 60)
 
 
@@ -318,6 +371,19 @@ def push_report(report: dict) -> bool:
                 f"<td>{s['ytd']}</td></tr>"
             )
         lines.append("</table>")
+
+        # 个股精选
+        stock_picks = report.get('stock_picks', {})
+        if stock_picks.get('picks') and not stock_picks.get('error'):
+            picks = stock_picks['picks']
+            total = stock_picks.get('total_buys', 0)
+            lines.append(f"<h4>📈 个股精选（共{total}只Buy）</h4>")
+            lines.append("<table border='1' cellpadding='6' style='border-collapse:collapse;width:100%'>")
+            lines.append("<tr style='background:#f0f0f0'><th>板块</th><th>推荐个股</th></tr>")
+            for sector, stocks in picks.items():
+                names = ' / '.join([f"{s['name']}({s['score']}分,{s['ret20d']})" for s in stocks])
+                lines.append(f"<tr><td>{sector}</td><td>{names}</td></tr>")
+            lines.append("</table>")
 
         content = "\n".join(lines)
         title = f"📊 {report['title']} | {report['composite_signal']}"
@@ -376,12 +442,26 @@ def main():
               f"{pcr_data.get('510300_interp', '')}")
         print(f"  波动率: {pcr_data.get('vol_desc', 'N/A')}")
 
-    # 5. 构建报告
+    # 5. 个股精选（读缓存）
+    print("\n⏳ 获取个股精选（读缓存）...")
+    stock_picks = get_stock_picks()
+    if stock_picks.get('error'):
+        print(f"  个股: 获取失败 ({stock_picks.get('error')})")
+    elif stock_picks.get('picks'):
+        total = stock_picks.get('total_buys', 0)
+        print(f"  Buy信号共{total}只:")
+        for sector, stocks in list(stock_picks['picks'].items())[:5]:
+            names = ', '.join([s['name'] for s in stocks])
+            print(f"    {sector}: {names}")
+    else:
+        print(f"  个股: 缓存为空（需先运行全量扫描 scripts/stock_daily.py）")
+
+    # 6. 构建报告
     print("\n⏳ 构建报告...")
-    report = build_report(strategy_results, sentiment, fund_flow, pcr_data)
+    report = build_report(strategy_results, sentiment, fund_flow, pcr_data, stock_picks)
     print_report(report)
 
-    # 6. 推送
+    # 7. 推送
     if args.push or not args.no_push:
         push_token = os.environ.get("PUSHPLUS_TOKEN", "")
         if push_token:

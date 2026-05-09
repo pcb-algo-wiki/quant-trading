@@ -26,6 +26,38 @@ from data.stock_fetcher import fetch_stock_cached
 from data.stock_pool import get_pool, ALL_STOCKS, SEMI_CONDUCTOR
 from data.stock_pool import AI_COMPUTE, AI_APPLICATION, OPTICAL_COMMS, COMMS_EQUIPMENT
 from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, CONSUMER, FINANCE
+from pathlib import Path
+import pickle, os
+from datetime import datetime, timedelta
+
+
+SCAN_CACHE = Path(__file__).parent / "cache" / "stock_scan_cache.pkl"
+SCAN_CACHE.parent.mkdir(exist_ok=True, parents=True)
+SCAN_CACHE_STALENESS_HOURS = 6
+
+
+def _load_scan_cache() -> Optional[pd.DataFrame]:
+    """读取扫描缓存（如果存在且不过期）"""
+    if not SCAN_CACHE.exists():
+        return None
+    try:
+        mtime = os.path.getmtime(SCAN_CACHE)
+        age_hours = (datetime.now().timestamp() - mtime) / 3600
+        if age_hours > SCAN_CACHE_STALENESS_HOURS:
+            return None
+        with open(SCAN_CACHE, 'rb') as f:
+            return pickle.load(f)
+    except Exception:
+        return None
+
+
+def _save_scan_cache(df: pd.DataFrame):
+    """保存扫描缓存"""
+    try:
+        with open(SCAN_CACHE, 'wb') as f:
+            pickle.dump(df, f)
+    except Exception:
+        pass
 
 
 def calc_momentum(df: pd.DataFrame, windows: list = [5, 20, 60]) -> pd.DataFrame:
@@ -151,17 +183,25 @@ def analyze_stock(symbol: str, market: str, use_cache: bool = True) -> dict:
     return result
 
 
-def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True) -> pd.DataFrame:
+def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True, force_refresh: bool = False) -> pd.DataFrame:
     """
     扫描股票池，返回排名表
 
     Args:
         stock_pool: dict of {symbol: (market, name, sector, industry, concept)}
-        use_cache: 是否使用缓存
+        use_cache: 是否使用本地缓存数据
+        force_refresh: 是否强制重新扫描（忽略缓存）
 
     Returns:
         DataFrame sorted by score descending
     """
+    # 尝试读缓存（除非强制刷新）
+    if not force_refresh:
+        cached = _load_scan_cache()
+        if cached is not None and len(cached) > 50:
+            # 只更新最近新上市的股票
+            return cached
+
     if stock_pool is None:
         stock_pool = ALL_STOCKS
 
@@ -189,7 +229,35 @@ def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True) -> pd
 
     df = pd.DataFrame(results)
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
+
+    # 保存缓存
+    _save_scan_cache(df)
+
     return df
+
+
+def get_top_picks(n: int = 5, sector: Optional[str] = None) -> pd.DataFrame:
+    """
+    获取当前最佳个股推荐（从缓存读取，新扫描耗时长）
+
+    Args:
+        n: 返回前N只
+        sector: 可选，限定板块（如"半导体"）
+
+    Returns:
+        DataFrame: [symbol, name, sector, score, signal, ret_20d]
+    """
+    cached = _load_scan_cache()
+    if cached is None or cached.empty:
+        # 无缓存，返回空
+        return pd.DataFrame()
+
+    df = cached.copy()
+    if sector:
+        df = df[df['sector'].str.contains(sector, na=False)]
+
+    top = df.head(n)
+    return top[['symbol', 'name', 'sector', 'score', 'signal', 'ret_20d']].copy()
 
 
 def format_scan_results(df: pd.DataFrame, top_n: int = 10) -> str:
