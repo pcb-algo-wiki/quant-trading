@@ -209,21 +209,63 @@ def fetch_stock(
     return df.reset_index(drop=True)
 
 
+def _fetch_etf_range(symbol: str, start: str, end: str) -> pd.DataFrame:
+    """直接获取ETF数据（不分页，不写缓存）"""
+    all_klines = []
+    page = 0
+    max_pages = 10
+    batch_size = 2000
+
+    while page < max_pages:
+        klines = _curl_sina(symbol, scale=240, datalen=batch_size)
+        if not klines:
+            break
+        all_klines = all_klines + klines
+        page += 1
+        if len(klines) < batch_size:
+            break
+        time.sleep(0.3)
+
+    if not all_klines:
+        return pd.DataFrame()
+
+    df = _parse_klines(all_klines)
+    start_dt = pd.to_datetime(start)
+    end_dt = pd.to_datetime(end)
+    df = df[(df["date"] >= start_dt) & (df["date"] <= end_dt)].copy()
+    return df.drop_duplicates(subset=["date"], keep="first").reset_index(drop=True)
+
+
 def fetch_etf(
     symbol: str,
     start: str = "20190101",
     end: str = "20251231",
     force: bool = False,
 ) -> pd.DataFrame:
-    """获取ETF数据（自动分页）"""
+    """获取ETF数据（自动分页 + 增量更新）"""
     cache_file = CACHE_DIR / f"etf_{symbol}.pkl"
 
     if cache_file.exists() and not force:
         df = pd.read_pickle(cache_file)
         if len(df) > 100:
-            print(f"[Cache] ETF {symbol}: {len(df)} rows ({df['date'].min().date()} ~ {df['date'].max().date()})")
+            cached_end = df["date"].max()
+            today = pd.Timestamp.today()
+            # 增量更新：缓存数据早于昨天，主动补充新数据
+            if cached_end < today - pd.Timedelta(days=1):
+                cache_start = cached_end.strftime("%Y%m%d")
+                print(f"[Incremental] ETF {symbol} cache ends {cached_end.date()}, fetching from {cache_start}...")
+                new_data = _fetch_etf_range(symbol, cache_start, today.strftime("%Y%m%d"))
+                if len(new_data) > 0:
+                    new_data = new_data[new_data["date"] > cached_end]
+                    if len(new_data) > 0:
+                        df = pd.concat([df, new_data], ignore_index=True)
+                        df = df.drop_duplicates(subset=["date"], keep="first").reset_index(drop=True)
+                        pd.to_pickle(df, cache_file)
+                        print(f"[Updated] ETF {symbol}: {len(df)} rows ({df['date'].min().date()} ~ {df['date'].max().date()})")
+            # 始终在完整缓存上过滤日期范围
             filtered = df[(df["date"] >= pd.to_datetime(start)) & (df["date"] <= pd.to_datetime(end))].copy()
             if len(filtered) > 50:
+                print(f"[Cache] ETF {symbol}: {len(df)} rows ({df['date'].min().date()} ~ {df['date'].max().date()})")
                 return filtered
 
     print(f"[Fetch] ETF {symbol} from {start} to {end}...")
