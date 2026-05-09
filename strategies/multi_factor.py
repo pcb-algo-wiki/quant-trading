@@ -352,8 +352,11 @@ class MomentumFactorStrategy:
         trend_up = close > ma60
 
         # 波动率过滤：波动率低于历史中位数（避免高波动期）
-        vol_median = vol.rolling(252).median()
+        # 用60天窗口，2023-2024数据(484天)足够计算
+        vol_median = vol.rolling(60, min_periods=20).median()
         low_vol = vol < vol_median
+        # median为NaN时（数据不足），默认低波动=True（不过滤）
+        low_vol = low_vol.fillna(True)
 
         # 综合信号
         score = pd.Series(0.0, index=data.index)

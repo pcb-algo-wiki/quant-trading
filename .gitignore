@@ -6,3 +6,4 @@ data/*.csv
 logs/*.log
 .env
 .DS_Store
+data/cache/*.pkl
