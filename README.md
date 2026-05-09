@@ -13,6 +13,9 @@ quant-trading/
 ├── data/
 │   ├── fetcher.py          # 数据获取（新浪财经API）
 │   ├── fundamental.py      # 基本面数据（PE/PB/股息率）
+│   ├── macro_event.py      # 宏观事件策略（CPI/PMI/LPR/RRR/资金流）
+│   ├── news_sentiment.py   # 新闻情绪分析（akshare东财个股）
+│   ├── realtime_news.py    # 多源实时新闻（东财+新浪+同花顺，86条/天）
 │   └── cache/              # 本地缓存
 ├── strategies/
 │   ├── trend.py            # 趋势策略：MA_Cross, MACD, Breakout
