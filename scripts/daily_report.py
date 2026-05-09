@@ -399,69 +399,123 @@ def main():
     parser.add_argument("--push", action="store_true", help="推送到微信")
     parser.add_argument("--no-push", action="store_true", help="仅打印不推送")
     parser.add_argument("--symbols", default="510300,510500,159915", help="标的列表")
+    parser.add_argument("--quick", action="store_true", help="快速模式：仅用缓存数据，跳过网络请求")
     args = parser.parse_args()
 
     symbols = args.symbols.split(",")
 
     print("=" * 60)
-    print("  每日量化报告")
+    print("  每日量化报告" + (" [快速模式]" if args.quick else ""))
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
 
-    # 1. 策略检查
-    print("\n⏳ 运行策略检查...")
-    strategy_results = {}
-    for sym in symbols:
-        result = run_strategy_check(sym)
-        strategy_results[sym] = result
-        sig = result.get("signal", "?")
-        print(f"  {sym}: {sig.upper()} @ {result.get('last_price', 'N/A')}")
+    if args.quick:
+        # ── 快速模式：全部读缓存 ──────────────────────────────
+        # ETF信号从缓存读取
+        print("\n⏳ 读取缓存数据...")
+        strategy_results = {}
+        for sym in symbols:
+            try:
+                import pickle
+                pkl_path = f"data/cache/etf_{sym}.pkl"
+                if not os.path.exists(pkl_path):
+                    strategy_results[sym] = {"signal": "unknown", "error": "无缓存"}
+                    continue
+                with open(pkl_path, 'rb') as f:
+                    df = pickle.load(f)
+                if df is None or df.empty:
+                    strategy_results[sym] = {"signal": "unknown", "error": "空缓存"}
+                    continue
+                close = df['close']
+                ma_fast = close.rolling(15).mean()
+                ma_slow = close.rolling(20).mean()
+                current = close.iloc[-1]
+                sig = "buy" if ma_fast.iloc[-1] > ma_slow.iloc[-1] else "sell" if ma_fast.iloc[-1] < ma_slow.iloc[-1] else "hold"
+                ret5 = (close.iloc[-1] / close.iloc[-5] - 1) * 100 if len(close) >= 5 else 0
+                # YTD: 从2026年第一个交易日算起
+                import pandas as pd
+                df_with_date = df.copy()
+                if 'date' in df_with_date.columns:
+                    start_2026 = df_with_date[df_with_date['date'] >= pd.Timestamp('2026-01-01')]
+                    if not start_2026.empty:
+                        ytd = (close.iloc[-1] / start_2026['close'].iloc[0] - 1) * 100
+                    else:
+                        ytd = 0.0
+                else:
+                    ytd = 0.0
+                strategy_results[sym] = {
+                    "signal": sig, "last_price": round(float(current), 3),
+                    "ma_fast": round(float(ma_fast.iloc[-1]), 3),
+                    "ma_slow": round(float(ma_slow.iloc[-1]), 3),
+                    "recent_5d_return": round(ret5, 2),
+                    "ytd_return": round(ytd, 2),
+                }
+            except Exception as e:
+                strategy_results[sym] = {"signal": "unknown", "error": str(e)}
+            print(f"  {sym}: {strategy_results[sym].get('signal', '?').upper()} @ {strategy_results[sym].get('last_price', 'N/A')}")
 
-    # 2. 市场情绪
-    print("\n⏳ 获取市场情绪...")
-    sentiment = get_market_sentiment()
-    print(f"  情感: {sentiment.get('sentiment', 0.5):.3f} | "
-          f"新闻: {sentiment.get('news_count', 0)}条 | "
-          f"市场: {sentiment.get('market_mood', '?')}")
+        sentiment = {"sentiment": 0.5, "news_count": 0, "market_mood": "（快速模式）"}
+        fund_flow = {"signal": "neutral", "score": 0.5}
+        pcr_data = {}
+        stock_picks = {}
 
-    # 3. 资金流向
-    print("\n⏳ 获取资金流向...")
-    fund_flow = get_fund_flow_signal("159915")
-    print(f"  信号: {fund_flow.get('signal', '?')} | "
-          f"评分: {fund_flow.get('score', 0):.3f}")
-
-    # 4. PCR情绪
-    print("\n⏳ 获取期权PCR情绪...")
-    pcr_data = get_pcr_signals_data()
-    if pcr_data.get("error"):
-        print(f"  PCR: 获取失败 ({pcr_data.get('error')})")
     else:
-        print(f"  沪深300: vol_PCR={pcr_data.get('510300_pcr', 'N/A')}  "
-              f"oi_PCR={pcr_data.get('510300_oi_pcr', 'N/A')}  "
-              f"信号={pcr_data.get('510300_signal', '?')}  "
-              f"{pcr_data.get('510300_interp', '')}")
-        print(f"  波动率: {pcr_data.get('vol_desc', 'N/A')}")
+        # ── 完整模式 ──────────────────────────────────────────
 
-    # 5. 个股精选（读缓存）
-    print("\n⏳ 获取个股精选（读缓存）...")
-    stock_picks = get_stock_picks()
-    if stock_picks.get('error'):
-        print(f"  个股: 获取失败 ({stock_picks.get('error')})")
-    elif stock_picks.get('picks'):
-        total = stock_picks.get('total_buys', 0)
-        print(f"  Buy信号共{total}只:")
-        for sector, stocks in list(stock_picks['picks'].items())[:5]:
-            names = ', '.join([s['name'] for s in stocks])
-            print(f"    {sector}: {names}")
-    else:
-        print(f"  个股: 缓存为空（需先运行全量扫描 scripts/stock_daily.py）")
+        # 1. 策略检查
+        print("\n⏳ 运行策略检查...")
+        strategy_results = {}
+        for sym in symbols:
+            result = run_strategy_check(sym)
+            strategy_results[sym] = result
+            sig = result.get("signal", "?")
+            print(f"  {sym}: {sig.upper()} @ {result.get('last_price', 'N/A')}")
 
-    # 6. 构建报告
+        # 2. 市场情绪
+        print("\n⏳ 获取市场情绪...")
+        sentiment = get_market_sentiment()
+        print(f"  情感: {sentiment.get('sentiment', 0.5):.3f} | "
+              f"新闻: {sentiment.get('news_count', 0)}条 | "
+              f"市场: {sentiment.get('market_mood', '?')}")
+
+        # 3. 资金流向
+        print("\n⏳ 获取资金流向...")
+        fund_flow = get_fund_flow_signal("159915")
+        print(f"  信号: {fund_flow.get('signal', '?')} | "
+              f"评分: {fund_flow.get('score', 0):.3f}")
+
+        # 4. PCR情绪
+        print("\n⏳ 获取期权PCR情绪...")
+        pcr_data = get_pcr_signals_data()
+        if pcr_data.get("error"):
+            print(f"  PCR: 获取失败 ({pcr_data.get('error')})")
+        else:
+            print(f"  沪深300: vol_PCR={pcr_data.get('510300_pcr', 'N/A')}  "
+                  f"oi_PCR={pcr_data.get('510300_oi_pcr', 'N/A')}  "
+                  f"信号={pcr_data.get('510300_signal', '?')}  "
+                  f"{pcr_data.get('510300_interp', '')}")
+            print(f"  波动率: {pcr_data.get('vol_desc', 'N/A')}")
+
+        # 5. 个股精选（读缓存）
+        print("\n⏳ 获取个股精选（读缓存）...")
+        stock_picks = get_stock_picks()
+        if stock_picks.get('error'):
+            print(f"  个股: 获取失败 ({stock_picks.get('error')})")
+        elif stock_picks.get('picks'):
+            total = stock_picks.get('total_buys', 0)
+            print(f"  Buy信号共{total}只:")
+            for sector, stocks in list(stock_picks['picks'].items())[:5]:
+                names = ', '.join([s['name'] for s in stocks])
+                print(f"    {sector}: {names}")
+        else:
+            print(f"  个股: 缓存为空（需先运行全量扫描 scripts/stock_daily.py）")
+
+    # 构建报告
     print("\n⏳ 构建报告...")
     report = build_report(strategy_results, sentiment, fund_flow, pcr_data, stock_picks)
     print_report(report)
 
-    # 7. 推送
+    # 推送
     if args.push or not args.no_push:
         push_token = os.environ.get("PUSHPLUS_TOKEN", "")
         if push_token:
