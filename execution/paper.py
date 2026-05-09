@@ -1,15 +1,59 @@
 """
-模拟交易模块
-- 跟踪持仓、资金、盈亏
-- 生成交易信号
+execution/paper.py — 模拟交易增强版
+====================================
+- 订单状态机：pending → filled / rejected / cancelled
+- 完整交易记录
+- 盈亏统计
 """
 
 import json
 import pandas as pd
 from pathlib import Path
-from datetime import datetime
-from typing import Optional, List
-from dataclasses import dataclass, asdict
+from datetime import datetime, date
+from typing import Optional, List, Dict
+from dataclasses import dataclass, field, asdict
+from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class OrderStatus(Enum):
+    """订单状态"""
+    PENDING = "pending"      # 挂单中
+    FILLED = "filled"        # 已成交
+    PARTIAL = "partial"      # 部分成交
+    CANCELLED = "cancelled"  # 已撤销
+    REJECTED = "rejected"    # 已拒绝
+
+
+class OrderSide(Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+
+
+@dataclass
+class Order:
+    """订单"""
+    order_id: str
+    date: str
+    symbol: str
+    side: OrderSide
+    price: float
+    target_shares: float       # 目标股数
+    filled_shares: float = 0   # 已成交股数
+    avg_fill_price: float = 0  # 成交均价
+    status: OrderStatus = OrderStatus.PENDING
+    reason: str = ""           # 拒绝/撤销原因
+    created_at: str = ""       # 创建时间
+
+    @property
+    def unfilled_shares(self) -> float:
+        return self.target_shares - self.filled_shares
+
+    @property
+    def is_complete(self) -> bool:
+        return self.status in (OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.REJECTED)
 
 
 @dataclass
@@ -29,100 +73,226 @@ class Position:
 
     @property
     def return_pct(self) -> float:
-        return (self.current_price - self.avg_cost) / self.avg_cost
+        return (self.current_price - self.avg_cost) / self.avg_cost if self.avg_cost > 0 else 0
 
 
 @dataclass
 class Trade:
+    """成交记录"""
+    trade_id: str
+    order_id: str
     date: str
     symbol: str
-    action: str  # BUY/SELL
+    side: OrderSide
     price: float
     shares: float
-    pnl: float = 0  # 平仓盈亏（仅SELL时计算）
+    pnl: float = 0  # 平仓盈亏（仅SELL时）
 
 
 class PaperTrader:
     """
-    模拟交易账户
+    模拟交易账户（增强版：订单状态机）
+
+    订单流程:
+      submit_order() → 创建pending订单
+      check_orders() → 更新订单状态
+      execute_filled() → 执行成交，更新持仓
     """
 
-    def __init__(self, initial_cash: float = 100_000, config_path: str = ""):
+    def __init__(self, initial_cash: float = 100_000, commission: float = 0.0003):
         self.initial_cash = initial_cash
         self.cash = initial_cash
-        self.positions: dict[str, Position] = {}  # symbol -> Position
+        self.commission = commission
+        self.positions: Dict[str, Position] = {}
+        self.orders: List[Order] = []
         self.trades: List[Trade] = []
         self.equity_curve: List[dict] = []
-        self.config_path = config_path
+        self._order_counter = 0
+        self._trade_counter = 0
 
-    def buy(self, date: str, symbol: str, price: float, shares: float = 0, amount: float = 0):
-        """
-        买入
+    # ---- 订单管理 ----
 
-        Args:
-            date: 交易日期
-            symbol: 股票代码
-            price: 价格
-            shares: 股数（优先使用）
-            amount: 金额（shares=0时使用）
+    def submit_order(
+        self,
+        date: str,
+        symbol: str,
+        side: OrderSide,
+        price: float,
+        shares: float,
+        order_id: str = None,
+    ) -> Order:
+        """提交订单（挂单）"""
+        if order_id is None:
+            self._order_counter += 1
+            order_id = f"ORD-{self._order_counter:04d}"
+
+        order = Order(
+            order_id=order_id,
+            date=date,
+            symbol=symbol,
+            side=side,
+            price=price,
+            target_shares=shares,
+            created_at=datetime.now().strftime("%H:%M:%S"),
+        )
+        self.orders.append(order)
+        logger.info(f"[Order] {order.status.value.upper()} {side.value} {symbol} {shares}@{price}")
+        return order
+
+    def cancel_order(self, order_id: str) -> bool:
+        """撤销订单"""
+        for order in self.orders:
+            if order.order_id == order_id and order.status == OrderStatus.PENDING:
+                order.status = OrderStatus.CANCELLED
+                order.reason = "user_cancel"
+                logger.info(f"[Order Cancelled] {order_id}")
+                return True
+        return False
+
+    def check_and_fill(self, current_prices: Dict[str, float]) -> List[Order]:
         """
+        检查所有pending订单，更新状态
+        简化逻辑：市价 >= 挂单价则成交
+
+        Returns:
+            本次新成交的订单列表
+        """
+        filled_orders = []
+        today = date.today().strftime("%Y-%m-%d")
+
+        for order in self.orders:
+            if order.status != OrderStatus.PENDING:
+                continue
+
+            current_price = current_prices.get(order.symbol, order.price)
+
+            # 简单撮合逻辑：买单价>=市价则成交，卖单价<=市价则成交
+            if order.side == OrderSide.BUY and current_price <= order.price * 1.01:
+                # 买入：允许1%滑点内成交
+                self._fill_order(order, current_price, order.target_shares)
+                filled_orders.append(order)
+            elif order.side == OrderSide.SELL and current_price >= order.price * 0.99:
+                # 卖出：允许1%滑点内成交
+                self._fill_order(order, current_price, order.target_shares)
+                filled_orders.append(order)
+
+        return filled_orders
+
+    def _fill_order(self, order: Order, fill_price: float, fill_shares: float):
+        """执行成交"""
+        order.avg_fill_price = fill_price
+        order.filled_shares = fill_shares
+        order.status = OrderStatus.FILLED
+
+        self._trade_counter += 1
+        trade = Trade(
+            trade_id=f"TRD-{self._trade_counter:04d}",
+            order_id=order.order_id,
+            date=order.date,
+            symbol=order.symbol,
+            side=order.side,
+            price=fill_price,
+            shares=fill_shares,
+        )
+
+        if order.side == OrderSide.BUY:
+            self._execute_buy(order, fill_price, fill_shares, trade)
+        else:
+            self._execute_sell(order, fill_price, fill_shares, trade)
+
+        self.trades.append(trade)
+        logger.info(f"[Fill] {order.side.value} {order.symbol} {fill_shares}@{fill_price:.3f}")
+
+    def _execute_buy(self, order: Order, price: float, shares: float, trade: Trade):
+        """执行买入"""
+        cost = shares * price * (1 + self.commission)
+        if cost > self.cash:
+            order.status = OrderStatus.REJECTED
+            order.reason = f"insufficient_cash: need={cost:.2f} have={self.cash:.2f}"
+            logger.warning(f"[Reject] {order.order_id} {order.reason}")
+            return
+
+        self.cash -= cost
+
+        if order.symbol in self.positions:
+            pos = self.positions[order.symbol]
+            total = pos.shares + shares
+            pos.avg_cost = (pos.shares * pos.avg_cost + shares * price) / total
+            pos.shares = total
+            pos.current_price = price
+        else:
+            self.positions[order.symbol] = Position(
+                symbol=order.symbol, shares=shares,
+                avg_cost=price, current_price=price
+            )
+
+    def _execute_sell(self, order: Order, price: float, shares: float, trade: Trade):
+        """执行卖出"""
+        if order.symbol not in self.positions:
+            order.status = OrderStatus.REJECTED
+            order.reason = f"no_position: {order.symbol}"
+            logger.warning(f"[Reject] {order.order_id} {order.reason}")
+            return
+
+        pos = self.positions[order.symbol]
+        if shares > pos.shares:
+            shares = pos.shares  # 最多卖完
+
+        proceeds = shares * price * (1 - self.commission)
+        pnl = (price - pos.avg_cost) * shares
+        trade.pnl = pnl
+
+        self.cash += proceeds
+        pos.shares -= shares
+        if pos.shares <= 0:
+            del self.positions[order.symbol]
+        else:
+            pos.current_price = price
+
+    # ---- 便捷方法 ----
+
+    def buy(self, date: str, symbol: str, price: float, shares: float = 0, amount: float = 0) -> bool:
+        """快捷买入（市价单，不经过订单状态机）"""
         if shares == 0 and amount > 0:
             shares = amount / price
 
-        cost = shares * price * 1.0003  # 手续费
-        if cost > self.cash:
-            print(f"[警告] 资金不足: 需要{cost:.2f}, 账户{self.cash:.2f}")
-            return False
+        self._order_counter += 1
+        order = Order(
+            order_id=f"ORD-{self._order_counter:04d}",
+            date=date, symbol=symbol,
+            side=OrderSide.BUY, price=price,
+            target_shares=shares,
+            created_at=datetime.now().strftime("%H:%M:%S"),
+        )
+        # 直接以挂单价成交
+        self._fill_order(order, price, shares)
+        self.orders.append(order)
+        return order.status == OrderStatus.FILLED
 
-        if symbol in self.positions:
-            pos = self.positions[symbol]
-            total_shares = pos.shares + shares
-            pos.avg_cost = (pos.shares * pos.avg_cost + shares * price) / total_shares
-            pos.shares = total_shares
-            pos.current_price = price
-        else:
-            self.positions[symbol] = Position(
-                symbol=symbol, shares=shares, avg_cost=price, current_price=price
-            )
+    def sell(self, date: str, symbol: str, price: float, shares: float = 0) -> bool:
+        """快捷卖出"""
+        if shares == 0 and symbol in self.positions:
+            shares = self.positions[symbol].shares
 
-        self.cash -= cost
-        self.trades.append(Trade(date, symbol, "BUY", price, shares))
-        print(f"[BUY] {date} {symbol} {shares:.0f}股 @{price:.2f}")
-        return True
+        self._order_counter += 1
+        order = Order(
+            order_id=f"ORD-{self._order_counter:04d}",
+            date=date, symbol=symbol,
+            side=OrderSide.SELL, price=price,
+            target_shares=shares,
+            created_at=datetime.now().strftime("%H:%M:%S"),
+        )
+        self._fill_order(order, price, shares)
+        self.orders.append(order)
+        return order.status == OrderStatus.FILLED
 
-    def sell(self, date: str, symbol: str, price: float, shares: float = 0):
-        """卖出"""
-        if symbol not in self.positions:
-            print(f"[警告] 没有持仓: {symbol}")
-            return False
-
-        pos = self.positions[symbol]
-        if shares == 0 or shares >= pos.shares:
-            shares = pos.shares
-
-        proceeds = shares * price * 0.9997  # 扣除手续费
-        pnl = (price - pos.avg_cost) * shares
-
-        self.cash += proceeds
-        self.trades.append(Trade(date, symbol, "SELL", price, shares, pnl))
-
-        pos.shares -= shares
-        if pos.shares <= 0:
-            del self.positions[symbol]
-        else:
-            pos.current_price = price
-
-        print(f"[SELL] {date} {symbol} {shares:.0f}股 @{price:.2f} PnL={pnl:.2f}")
-        return True
-
-    def update_prices(self, prices: dict[str, float]):
-        """更新持仓价格"""
+    def update_prices(self, prices: Dict[str, float]):
+        """批量更新持仓价格"""
         for symbol, price in prices.items():
             if symbol in self.positions:
                 self.positions[symbol].current_price = price
 
     def get_equity(self) -> float:
-        """当前总权益"""
         return self.cash + sum(p.market_value for p in self.positions.values())
 
     def snapshot(self, date: str):
@@ -137,12 +307,13 @@ class PaperTrader:
         })
 
     def get_stats(self) -> dict:
-        """获取账户统计"""
         equity = self.get_equity()
         total_return = (equity - self.initial_cash) / self.initial_cash
 
-        winning_trades = [t for t in self.trades if t.action == "SELL" and t.pnl > 0]
-        losing_trades = [t for t in self.trades if t.action == "SELL" and t.pnl < 0]
+        sell_trades = [t for t in self.trades if t.side == OrderSide.SELL]
+        winning = [t for t in sell_trades if t.pnl > 0]
+
+        pending_orders = [o for o in self.orders if o.status == OrderStatus.PENDING]
 
         return {
             "initial_cash": self.initial_cash,
@@ -152,53 +323,87 @@ class PaperTrader:
             "total_return_pct": f"{total_return*100:.2f}%",
             "num_positions": len(self.positions),
             "num_trades": len(self.trades),
-            "winning_trades": len(winning_trades),
-            "losing_trades": len(losing_trades),
-            "win_rate": len(winning_trades) / max(len(winning_trades) + len(losing_trades), 1),
+            "num_orders": len(self.orders),
+            "pending_orders": len(pending_orders),
+            "winning_trades": len(winning),
+            "losing_trades": len(sell_trades) - len(winning),
+            "win_rate": len(winning) / max(len(sell_trades), 1),
         }
 
+    def get_positions_summary(self) -> List[dict]:
+        """持仓汇总"""
+        return [
+            {
+                "symbol": p.symbol,
+                "shares": round(p.shares, 0),
+                "avg_cost": round(p.avg_cost, 3),
+                "current_price": round(p.current_price, 3),
+                "market_value": round(p.market_value, 2),
+                "unrealized_pnl": round(p.unrealized_pnl, 2),
+                "return_pct": f"{p.return_pct*100:.2f}%",
+            }
+            for p in self.positions.values()
+        ]
+
     def print_status(self):
-        """打印账户状态"""
         stats = self.get_stats()
-        print(f"\n{'='*45}")
-        print(f"  模拟账户状态")
-        print(f"{'='*45}")
-        print(f"  {'初始资金':>12}: {stats['initial_cash']:>10.2f}")
-        print(f"  {'当前权益':>12}: {stats['current_equity']:>10.2f}")
-        print(f"  {'现金':>12}: {stats['cash']:>10.2f}")
-        print(f"  {'总收益率':>12}: {stats['total_return_pct']:>10}")
-        print(f"  {'持仓数':>12}: {stats['num_positions']:>10}")
-        print(f"  {'交易次数':>12}: {stats['num_trades']:>10}")
-        print(f"  {'胜率':>12}: {stats['win_rate']*100:>10.2f}%")
-        print(f"{'='*45}")
+        print(f"\n{'='*50}")
+        print(f"  模拟账户状态  ({datetime.now().strftime('%Y-%m-%d %H:%M')})")
+        print(f"{'='*50}")
+        print(f"  {'初始资金':>12}: {stats['initial_cash']:>12.2f}")
+        print(f"  {'当前权益':>12}: {stats['current_equity']:>12.2f}")
+        print(f"  {'现金':>12}: {stats['cash']:>12.2f}")
+        print(f"  {'总收益率':>12}: {stats['total_return_pct']:>12}")
+        print(f"  {'持仓数':>12}: {stats['num_positions']:>12}")
+        print(f"  {'成交单数':>12}: {stats['num_trades']:>12}")
+        print(f"  {'挂单数':>12}: {stats['pending_orders']:>12}")
+        print(f"  {'胜率':>12}: {stats['win_rate']*100:>11.2f}%")
+        print(f"{'='*50}")
 
         if self.positions:
             print("\n持仓:")
-            for pos in self.positions.values():
-                print(
-                    f"  {pos.symbol}: {pos.shares:.0f}股 @ "
-                    f"成本={pos.avg_cost:.2f} 当前={pos.current_price:.2f} "
-                    f"盈亏={pos.unrealized_pnl:.2f}({pos.return_pct*100:.1f}%)"
-                )
+            for p in self.positions.values():
+                emoji = "🟢" if p.unrealized_pnl >= 0 else "🔴"
+                print(f"  {emoji} {p.symbol}: {p.shares:.0f}股 "
+                      f"成本={p.avg_cost:.3f} 现价={p.current_price:.3f} "
+                      f"盈亏={p.unrealized_pnl:.2f}({p.return_pct*100:+.1f}%)")
+
+        if self.orders:
+            pending = [o for o in self.orders if o.status == OrderStatus.PENDING]
+            if pending:
+                print(f"\n挂单({len(pending)}笔):")
+                for o in pending[-5:]:
+                    print(f"  ⏳ {o.order_id} {o.side.value} {o.symbol} {o.target_shares:.0f}@{o.price:.3f}")
 
     def save(self, path: str = "results/paper_trades.json"):
-        """保存交易记录"""
         Path(path).parent.mkdir(exist_ok=True)
         data = {
             "stats": self.get_stats(),
+            "positions": self.get_positions_summary(),
+            "orders": [asdict(o) for o in self.orders],
             "trades": [asdict(t) for t in self.trades],
             "equity_curve": self.equity_curve,
         }
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2, default=str)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
         print(f"\n[已保存] {path}")
 
 
+# ============ 兼容旧接口 ============
+
+def PaperTraderLegacy(**kwargs):
+    """保留旧版PaperTrader接口供旧代码兼容"""
+    return PaperTrader(**kwargs)
+
+
 if __name__ == "__main__":
-    # 简单测试
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
     trader = PaperTrader(initial_cash=100_000)
-    trader.buy("2024-01-01", "000001", 10.0, amount=10000)
-    trader.update_prices({"000001": 11.0})
-    trader.sell("2024-01-10", "000001", 11.0)
-    trader.snapshot("2024-01-10")
+    trader.buy("2024-01-01", "510300", 3.85, amount=38500)
+    trader.update_prices({"510300": 4.00})
+    trader.sell("2024-01-15", "510300", 4.00)
+    trader.snapshot("2024-01-15")
     trader.print_status()
+    trader.save("results/paper_test.json")
