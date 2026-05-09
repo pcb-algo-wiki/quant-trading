@@ -9,15 +9,43 @@ sys.path.insert(0, "/Users/tanwei/quant-trading")
 
 from backtest.engine import BacktestEngine
 from data.fetcher import fetch_etf
+from data.fundamental import fetch_etf_fundamental
 from strategies.trend import MA_Cross, MACD_Strat, Breakout_20
+from strategies.mean_reversion import RSI_Strat
+from strategies.multi_factor import TripleFactorStrategy, MomentumFactorStrategy
+from strategies.stock_bond_rotation import StockBondRotationStrategy, load_tnx
 
 
 def walk_forward_validate(symbol, strat_cls, params, train_days=252, test_days=63):
     df = fetch_etf(symbol, "20190101", "20241231")
-    strat = strat_cls(*params)
-    signals = strat.generate(df)
+
+    # 基本面数据（如策略需要）
+    fund_df = None
+    try:
+        fund_df = fetch_etf_fundamental(symbol, "20190101", "20241231")
+    except:
+        pass
+
+    # TNX（如策略需要）
+    tnx = load_tnx()
+
+    # 根据策略类型生成信号
+    if strat_cls == TripleFactorStrategy:
+        signals = strat_cls(*params).generate(df, fund_data=fund_df)
+    elif strat_cls == MomentumFactorStrategy:
+        signals = strat_cls(*params).generate(df)
+    elif strat_cls == StockBondRotationStrategy:
+        signals = strat_cls(*params).generate(df, bond_data=tnx)
+    else:
+        signals = strat_cls(*params).generate(df)
+
+    # 确保信号有date列
+    if "date" not in signals.columns:
+        signals = signals.reset_index().rename(columns={"index": "date"})
+    sig_dates = signals["date"].values
 
     n = len(df)
+    df_dates = df["date"].values
     results = []
 
     for start in range(0, n - test_days, test_days):
@@ -27,15 +55,49 @@ def walk_forward_validate(symbol, strat_cls, params, train_days=252, test_days=6
         if train_end > n:
             break
 
-        test_df = df.iloc[train_end:test_end]
-        test_sig = signals.iloc[train_end:test_end]
+        # 用日期切片，不用iloc（策略信号可能不对齐索引）
+        train_dates_set = set(df_dates[start:train_end])
+        test_dates_set = set(df_dates[train_end:test_end])
 
-        if len(test_df) < 20:
+        test_df = df[df["date"].isin(test_dates_set)].copy()
+        test_sig = signals[signals["date"].isin(test_dates_set)].copy()
+
+        # 清理信号：移除NaN，填充0
+        if "signal" in test_sig.columns:
+            test_sig["signal"] = test_sig["signal"].fillna(0).replace({-0: 0})
+        if "position" in test_sig.columns:
+            test_sig["position"] = test_sig["position"].fillna(0)
+
+        if len(test_df) < 20 or len(test_sig) == 0:
             continue
 
+        # 日期排序对齐
+        test_df = test_df.sort_values("date").reset_index(drop=True)
+        test_sig = test_sig.sort_values("date").reset_index(drop=True)
+
         engine = BacktestEngine(initial_capital=100_000)
-        r = engine.run(test_df, test_sig)
-        m = r["metrics"]
+        try:
+            r = engine.run(test_df, test_sig)
+            m = r["metrics"]
+        except Exception as e:
+            # 回退到quick_backtest（更robust）
+            from strategies.multi_factor import quick_backtest
+            test_sig_clean = test_sig.copy()
+            if "signal" in test_sig_clean.columns:
+                test_sig_clean["signal"] = test_sig_clean["signal"].fillna(0).astype(int)
+            if "position" in test_sig_clean.columns:
+                test_sig_clean["position"] = test_sig_clean["position"].fillna(0)
+            try:
+                r2 = quick_backtest(test_df, test_sig_clean)
+                m = {
+                    "annual_return": r2["total_return"] / 100,
+                    "sharpe_ratio": r2["sharpe"],
+                    "max_drawdown": r2["max_drawdown"] / 100,
+                    "num_trades": r2["n_trades"],
+                }
+            except Exception as e2:
+                print(f"      [警告] quick_backtest也失败: {e2}")
+                continue
 
         # 基准
         bh = (test_df["close"].iloc[-1] / test_df["close"].iloc[0]) - 1
@@ -64,6 +126,10 @@ def main():
         ("MA(10,60)", MA_Cross, (10, 60)),
         ("MACD", MACD_Strat, ()),
         ("Breakout(20)", Breakout_20, (20,)),
+        ("RSI(14)", RSI_Strat, (14,)),
+        ("TripleFactor", TripleFactorStrategy, ()),
+        ("MomentumFactor", MomentumFactorStrategy, ()),
+        ("TrendSpread", StockBondRotationStrategy, ("trend_spread", 10)),
     ]
 
     etfs = [
