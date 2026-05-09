@@ -317,22 +317,39 @@ class TripleFactorStrategy:
         return signals.reset_index(drop=True)
 
 
-# ============ 简化版：纯技术 + 动量择时 ============
-
 class MomentumFactorStrategy:
     """
-    动量因子策略（纯技术，无基本面/情感依赖）
+    动量因子策略 v2
 
-    核心：20日动量 + 波动率调整 + 趋势过滤
+    核心：风险调整动量(score > 60%分位) + 波动率过滤
+    v2改进：去掉trend_up过滤器（测试显示其伤害表现）
 
     用法:
         strat = MomentumFactorStrategy()
         signals = strat.generate(price_data)
     """
 
-    def __init__(self, mom_window: int = 20, vol_window: int = 20):
+    def __init__(
+        self,
+        mom_window: int = 20,
+        vol_window: int = 20,
+        vol_lookback: int = 60,
+        use_vol_filter: bool = False,   # 默认关闭，测试显示伤害表现
+        use_trend_filter: bool = False,  # 默认关闭，测试显示伤害表现
+    ):
+        """
+        Args:
+            mom_window: 动量计算窗口
+            vol_window: 波动率计算窗口
+            vol_lookback: 波动率分位计算窗口
+            use_vol_filter: 是否启用波动率过滤（低波动期才持仓）
+            use_trend_filter: 是否启用趋势过滤（已禁用，测试显示伤害表现）
+        """
         self.mom_window = mom_window
         self.vol_window = vol_window
+        self.vol_lookback = vol_lookback
+        self.use_vol_filter = use_vol_filter
+        self.use_trend_filter = use_trend_filter
 
     def generate(self, data: pd.DataFrame) -> pd.DataFrame:
         close = data["close"]
@@ -347,15 +364,13 @@ class MomentumFactorStrategy:
         # 风险调整动量：动量/波动率
         risk_adj_mom = momentum / (vol + 1e-10)
 
-        # 趋势过滤：MA60向上
+        # 趋势过滤（可选，默认关闭）
         ma60 = close.rolling(60).mean()
         trend_up = close > ma60
 
-        # 波动率过滤：波动率低于历史中位数（避免高波动期）
-        # 用60天窗口，2023-2024数据(484天)足够计算
-        vol_median = vol.rolling(60, min_periods=20).median()
+        # 波动率过滤：当前波动率 < 历史中位数
+        vol_median = vol.rolling(self.vol_lookback, min_periods=20).median()
         low_vol = vol < vol_median
-        # median为NaN时（数据不足），默认低波动=True（不过滤）
         low_vol = low_vol.fillna(True)
 
         # 综合信号
@@ -369,11 +384,13 @@ class MomentumFactorStrategy:
 
         for i in range(lookback, len(score)):
             p60 = score.iloc[i - lookback:i].quantile(0.6)
-            cond = (
-                (score.iloc[i] > p60)
-                & trend_up.iloc[i]
-                & low_vol.iloc[i]
-            )
+            cond = score.iloc[i] > p60
+
+            if self.use_trend_filter:
+                cond = cond and trend_up.iloc[i]
+            if self.use_vol_filter:
+                cond = cond and low_vol.iloc[i]
+
             position.iloc[i] = 1.0 if cond else 0.0
 
         signal = position.diff().fillna(0).apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
