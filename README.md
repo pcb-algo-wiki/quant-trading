@@ -4,26 +4,29 @@ A股ETF量化回测 + 策略验证系统。
 
 ## 项目状态
 
-> ⚠️ **重要结论**：经过5年历史数据 + Walk-Forward验证，当前简单技术指标策略**无法稳定跑赢买入持有基准**。不建议用于实盘。
+> 🔄 **迭代中**：新增多因子策略(TripleFactor)和股债轮动(StockBondRotation)，在熊市环境(2023-2024)中表现优于买入持有。
 
 ## 功能模块
 
 ```
 quant-trading/
 ├── data/
-│   ├── fetcher.py          # 数据获取（新浪财经API，5年+历史）
+│   ├── fetcher.py          # 数据获取（新浪财经API）
+│   ├── fundamental.py      # 基本面数据（PE/PB/股息率）
 │   └── cache/              # 本地缓存
 ├── strategies/
 │   ├── trend.py            # 趋势策略：MA_Cross, MACD, Breakout
 │   ├── mean_reversion.py   # 均值回归：RSI, BollingerBand, KD
-│   └── base.py             # 策略基类
+│   ├── multi_factor.py     # 多因子策略：TripleFactor, MomentumFactor
+│   └── stock_bond_rotation.py  # 股债轮动策略
 ├── backtest/
 │   ├── engine.py           # 回测引擎（V1基础版）
 │   └── risk.py             # 风控模块（V2增强版：止损/仓位/熔断）
 ├── execution/
 │   └── paper.py            # 模拟交易执行器
 ├── scripts/
-│   └── walk_forward.py     # Walk-Forward滚动验证
+│   ├── walk_forward.py     # Walk-Forward滚动验证
+│   └── quick_compare.py    # 快速策略对比
 └── run.py                  # 主入口
 ```
 
@@ -33,41 +36,70 @@ quant-trading/
 cd /Users/tanwei/quant-trading
 source .venv/bin/activate
 
-# ETF多策略对比
+# 策略对比（多因子 + 股债轮动）
+python scripts/quick_compare.py
+
+# 多策略对比（原run.py）
 python run.py --etf
 
-# 带风控回测
-python run.py --etf --risk
+# 多因子策略回测
+python run.py --multifactor
 
-# 完整5年回测
-python run.py --all
+# 股债轮动策略回测
+python run.py --rotation
 
 # Walk-Forward验证
 python run.py --wf
-
-# 单策略回测
-python run.py --strategy MA_Cross --symbol 510300 --bt
 ```
 
-## 回测结果（2023-2024）
+## 回测结果（2023-01-01 ~ 2024-12-31）
 
-| 策略 | 沪深300(510300) | 中证500(510500) | 创业板(159915) |
-|------|-----------------|-----------------|----------------|
-| MA(5,20) | -2.6% | -1.3% | +2.4% |
-| MA(10,60) | +2.0% | +8.1% | +11.2% |
-| MACD | -1.8% | +4.2% | +7.6% |
-| Breakout(20) | -5.4% | -3.1% | +1.2% |
-| 买入持有 | +1.9% | +1.8% | +5.6% |
+### 策略对比
 
-## Walk-Forward验证结论（训练252天/测试63天）
+| 策略 | 沪深300(510300) | 中证500(510500) | 创业板(159915) | 平均夏普 |
+|------|-----------------|-----------------|----------------|----------|
+| **TripleFactor** | **+17.65%** ✅ | -3.97% | **+14.18%** ✅ | 0.52 |
+| **StockBondRotation** | +8.11% | -0.16% | +3.39% | **0.73** |
+| MA(5,20) | -9.69% | **+15.15%** ✅ | +5.23% | 0.16 |
+| MomentumFactor | -2.85% | -6.98% | -0.01% | -0.58 |
+| 买入持有 | +1.85% | -2.66% | -8.17% | - |
 
-| ETF | 最佳策略 | 平均夏普 | 跑赢基准概率 | 结论 |
-|-----|---------|---------|-------------|------|
-| 沪深300 | MA(10,60) | -0.21 | 45% | ❌ 无效 |
-| 中证500 | MA(10,60) | -0.24 | 44% | ❌ 无效 |
-| 创业板 | MA(10,60) | -0.38 | 43% | ❌ 无效 |
+> ✅ 表示跑赢买入持有基准
 
-> 跑赢基准概率≈45%≈随机（50%），策略无实际预测能力。
+### 关键发现
+
+- **TripleFactor**（技术+基本面+情感三因子）：沪深300和创业板表现突出，分别跑赢基准+15.8%和+22.4%
+- **StockBondRotation**（股债轮动）：夏普比率最高(0.73)，最大回撤仅-10.8%，风险调整收益最优
+- **MomentumFactor**：动量条件过于严格（trend_up AND low_vol），信号稀少，效果差
+
+## Walk-Forward验证（训练252天/测试63天）
+
+| ETF | 最佳策略 | 夏普 | 跑赢基准概率 |
+|-----|---------|------|-------------|
+| 沪深300ETF | TrendSpread | **1.26** | 25% |
+| 中证500ETF | TrendSpread | 0.72 | 75% |
+| 创业板ETF | TripleFactor | 0.54 | 75% |
+
+> 样本量小（2023-2024仅4个测试窗口），结论参考性有限。
+
+## 策略说明
+
+### TripleFactorStrategy
+三因子综合评分策略，整合技术因子(50%) + 基本面因子(30%) + 情感因子(20%)：
+- 技术：动量、波动率、成交量、MA金叉、趋势、RS、价格位置
+- 基本面：PE分位、PB分位、股息率分位、盈利收益率分位
+- 择时：综合评分>60%分位持仓，<40%分位空仓，中间持有50%
+
+### StockBondRotationStrategy
+股债轮动策略，比较股票盈利收益率与债券收益率利差：
+- `trend_spread`模式：使用Z-Score利差择时（夏普0.90）
+- `simple`模式：纯股债轮动，不依赖趋势
+
+### MomentumFactorStrategy
+动量因子策略（当前效果较差，条件过于严格）：
+- 风险调整动量：动量/波动率
+- 趋势过滤：价格>MA60
+- 波动率过滤：当前波动率<60日中位数
 
 ## 风控模块 (backtest/risk.py)
 
@@ -90,15 +122,25 @@ result = engine.run(data, signals)
 - **来源**：新浪财经API（`money.finance.sina.com.cn`）
 - **频率**：日线
 - **缓存**：本地pickle，路径 `data/cache/`
-- **5年数据**：2019-01-01 ~ 2024-12-31
+- **回测区间**：2023-01-01 ~ 2024-12-31
 - **覆盖**：ETF、股票、指数
 
 ## 下一步方向
 
-1. **引入基本面数据**（PE、PB、财务报表）—— 当前纯技术指标不够
-2. **多因子策略** —— 价值 + 动量 + 质量因子组合
-3. **跨资产配置** —— 股债轮动、全球配置
-4. **实盘对接** —— QMT/同花顺 API（需券商账号）
+1. **扩大回测区间**：获取2019-2024完整5年数据进行Walk-Forward验证
+2. **修复MomentumFactor**：降低条件严格程度，提升信号频率
+3. **引入真实PE数据**：尝试东方财富API获取指数真实PE/PB
+4. **实盘对接**：QMT/同花顺 API（需券商账号）
+5. **参数优化**：对TripleFactor的因子权重和分位阈值进行网格搜索
+
+## 已知问题
+
+- [x] 新浪API每日期返回10条重复数据 → `drop_duplicates`修复
+- [x] `quick_backtest`对position=0.5处理错误 → 二值化修复
+- [x] 股债轮动datetime类型不匹配 → 统一Timestamp
+- [x] MomentumFactor波动率过滤窗口过大(252天) → 改为60天
+- [ ] MomentumFactor信号仍然稀少，需调整条件
+- [ ] Walk-Forward样本量小（仅4个窗口）
 
 ## 免责声明
 
