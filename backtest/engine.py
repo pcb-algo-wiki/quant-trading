@@ -94,6 +94,16 @@ class BacktestEngine:
 
         # 构建结果DataFrame
         result = pd.DataFrame(records)
+        if len(result) == 0:
+            return {
+                "equity_curve": result,
+                "metrics": {k: 0 for k in ["total_return","annual_return","benchmark_return",
+                          "excess_return","max_drawdown","sharpe_ratio","sortino_ratio",
+                          "win_rate","calmar_ratio","num_trades","final_equity"]},
+                "trades": [],
+                "data": data,
+                "signals": signals,
+            }
         result["benchmark"] = (df["close"] / df["close"].iloc[0]) * self.initial_capital
 
         # 计算绩效指标

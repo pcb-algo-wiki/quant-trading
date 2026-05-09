@@ -1,0 +1,232 @@
+# ============================================================
+# 量化交易系统配置
+# ============================================================
+# 用法：
+#   from utils.config import cfg; cfg.etfs['159915']
+#   或: python run.py --config config.yaml
+# ============================================================
+
+# ---------- 市场数据 ----------
+data:
+  # 默认回测区间
+  backtest:
+    start: "20230101"
+    end: "20241231"
+
+  # Yahoo Finance数据区间（更长历史）
+  yahoo:
+    start: "20190101"
+    end: "20261201"
+
+  # 缓存目录
+  cache_dir: "data/cache"
+
+  # 数据更新：增量更新的最大历史天数
+  incremental_update_days: 5
+
+# ---------- ETF标的 ----------
+etfs:
+  "510300":
+    name: "沪深300ETF"
+    type: "index"          # index | sector | bond | international
+    broker: "huaxia"
+    enabled: true
+  "510500":
+    name: "中证500ETF"
+    type: "index"
+    broker: "huaxia"
+    enabled: true
+  "159915":
+    name: "创业板ETF"
+    type: "index"
+    broker: "tonghuashun"
+    enabled: true
+  "512100":
+    name: "纳指ETF"
+    type: "international"
+    broker: "huaxia"
+    enabled: false          # 默认关闭，避免汇率干扰
+
+# ---------- 股票/期货 ----------
+stocks:
+  enabled: false
+  symbols: ["000001", "000002", "600519", "600036", "000858"]
+
+# ---------- 策略参数 ----------
+strategies:
+  # 均线交叉策略
+  ma_cross:
+    fast_period: 5
+    slow_period: 20
+    enabled: true
+
+  # MACD策略
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+    enabled: true
+
+  # 布林带策略
+  bollinger:
+    period: 20
+    std_dev: 2.0
+    enabled: true
+
+  # 动量轮动策略（已验证最优参数）
+  rotation:
+    lookback_momentum: 10   # 验证最优: 10天
+    rebalance_freq: 5       # 验证最优: 5天调仓
+    min_momentum: 0.0
+    enabled: true
+
+  # 多因子策略
+  multi_factor:
+    tech_weight: 0.60
+    fund_weight: 0.30
+    sent_weight: 0.10
+    volatility_window: 60   # 波动率窗口（已从252天修正为60天）
+    enabled: true
+
+  # 股债轮动
+  stock_bond_rotation:
+    mode: "trend_spread"    # trend | spread | trend_spread
+    rebalance_days: 10
+    tnx_lookback: 20       # 国债收益率回望天数
+    enabled: false          # 择时长周期无效，默认关闭
+
+  # 集成策略
+  ensemble:
+    strategy_type: "adaptive"  # equal | adaptive | voting | regime
+    enabled: true
+
+# ---------- 最优参数（2024-2026验证结果，不要轻易修改） ----------
+optimal_params:
+  # 创业板 MA(15/20) +149%  夏普1.28  最大回撤-18%
+  cyb_ma_fast: 15
+  cyb_ma_slow: 20
+
+  # 中证500 MA(5/20) +114%  夏普0.97  最大回撤-17%
+  zz500_ma_fast: 5
+  zz500_ma_slow: 20
+
+  # 沪深300 MA(3/20) +89%  夏普0.78  最大回撤-15%
+  hs300_ma_fast: 3
+  hs300_ma_slow: 20
+
+# ---------- 回测引擎 ----------
+backtest:
+  initial_capital: 100_000    # 初始资金（元）
+  commission: 0.0003          # 手续费（含印花税+佣金）
+  slippage: 0.0001           # 滑点（固定比例）
+  position_ratio: 1.0         # 仓位比例（现货=1.0）
+
+  # 风控参数
+  risk:
+    stop_loss: 0.07           # 固定止损 7%
+    trailing_stop: true       # 启用跟踪止损
+    trailing_pct: 0.05        # 跟踪止损 5%
+    take_profit: 0.0         # 止盈（0=不止盈）
+    base_ratio: 0.8           # 基础仓位比例
+
+# ---------- 实时新闻 ----------
+news:
+  # 数据源（优先级从高到低）
+  sources:
+    - name: "东方财富快讯"
+      url: "https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_{pagesize}_{page}_.html"
+      pagesize: 50
+      max_pages: 2
+      enabled: true
+    - name: "新浪财经"
+      url: "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&k=&num={num}&page=1"
+      num: 20
+      enabled: true
+    - name: "同花顺"
+      url: "https://news.10jqka.com.cn/tapp/news/push/stock/?page=1&tag=&track=website&pagesize={pagesize}"
+      pagesize: 30
+      enabled: true
+    - name: "财联社"
+      provider: "akshare"
+      enabled: false         # 付费内容多，默认关闭
+
+  # 情感分析权重
+  sentiment:
+    dict_weight: 0.6         # 词典权重
+    snownlp_weight: 0.4      # SnowNLP权重
+
+  # 宏观事件信号权重
+  macro:
+    news_sentiment_weight: 0.30
+    fund_flow_weight: 0.40
+    macro_signal_weight: 0.30
+
+  # 行动阈值
+  action:
+    buy_threshold: 0.62      # composite > 0.62 → buy
+    sell_threshold: 0.38      # composite < 0.38 → sell
+
+  # 超时（秒）
+  timeout: 10
+
+# ---------- 资金流向 ----------
+fund_flow:
+  # 东方财富资金流向接口
+  eastmoney_url: "https://push2.eastmoney.com/api/qt/stock/get"
+  lookback_days: 120         # 历史回望天数
+  main_net_min: 1_000_000   # 主力净流入最低门槛（元）
+
+# ---------- 宏观数据 ----------
+macro:
+  # 数据刷新：每日首次启动时更新
+  cache_days: 1               # 缓存有效期（天）
+
+  # 已验证的宏观信号
+  signals:
+    pmi_bull_threshold: 50.0    # PMI > 50 制造业扩张
+    cpi_threshold: 3.0          # CPI > 3% 通胀压力
+    lpr_easing: 0.0              # LPR下调 = 宽松信号
+
+# ---------- 执行/模拟交易 ----------
+execution:
+  mode: "paper"             # paper | backtest
+  broker: null              # 实盘券商（预留）
+
+  # 订单管理
+  order:
+    max_pending: 5          # 最大挂单数
+    retry_seconds: 5        # 订单重试间隔
+
+# ---------- 报警/通知 ----------
+notification:
+  enabled: false
+  # 微信推送（PushPlus）
+  pushplus_token: ""
+  # 钉钉
+  dingtalk_webhook: ""
+  # 邮件
+  email_smtp: ""
+  email_to: ""
+
+  # 报警条件
+  triggers:
+    - type: "drawdown"       # 最大回撤超限
+      threshold: -0.15       # -15%
+    - type: "daily_loss"      # 单日亏损
+      threshold: -0.05       # -5%
+    - type: "data_missing"    # 数据缺失
+      threshold: 1           # 连续1次就报警
+
+# ---------- 日志 ----------
+logging:
+  level: "INFO"             # DEBUG | INFO | WARNING | ERROR
+  file: "logs/quant.log"
+  console: true
+  max_bytes: 10_485_760     # 10MB轮转
+  backup_count: 3
+
+# ---------- 环境 ----------
+env:
+  dev: false
+  test: false
+  prod: false
