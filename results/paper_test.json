@@ -1,0 +1,76 @@
+{
+  "stats": {
+    "initial_cash": 100000,
+    "current_equity": 101476.45000000001,
+    "cash": 101476.45000000001,
+    "total_return": 0.014764500000000116,
+    "total_return_pct": "1.48%",
+    "num_positions": 0,
+    "num_trades": 2,
+    "num_orders": 2,
+    "pending_orders": 0,
+    "winning_trades": 1,
+    "losing_trades": 0,
+    "win_rate": 1.0
+  },
+  "positions": [],
+  "orders": [
+    {
+      "order_id": "ORD-0001",
+      "date": "2024-01-01",
+      "symbol": "510300",
+      "side": "OrderSide.BUY",
+      "price": 3.85,
+      "target_shares": 10000.0,
+      "filled_shares": 10000.0,
+      "avg_fill_price": 3.85,
+      "status": "OrderStatus.FILLED",
+      "reason": "",
+      "created_at": "21:44:37"
+    },
+    {
+      "order_id": "ORD-0002",
+      "date": "2024-01-15",
+      "symbol": "510300",
+      "side": "OrderSide.SELL",
+      "price": 4.0,
+      "target_shares": 10000.0,
+      "filled_shares": 10000.0,
+      "avg_fill_price": 4.0,
+      "status": "OrderStatus.FILLED",
+      "reason": "",
+      "created_at": "21:44:37"
+    }
+  ],
+  "trades": [
+    {
+      "trade_id": "TRD-0001",
+      "order_id": "ORD-0001",
+      "date": "2024-01-01",
+      "symbol": "510300",
+      "side": "OrderSide.BUY",
+      "price": 3.85,
+      "shares": 10000.0,
+      "pnl": 0
+    },
+    {
+      "trade_id": "TRD-0002",
+      "order_id": "ORD-0002",
+      "date": "2024-01-15",
+      "symbol": "510300",
+      "side": "OrderSide.SELL",
+      "price": 4.0,
+      "shares": 10000.0,
+      "pnl": 1499.999999999999
+    }
+  ],
+  "equity_curve": [
+    {
+      "date": "2024-01-15",
+      "cash": 101476.45000000001,
+      "equity": 101476.45000000001,
+      "positions_value": 0.0,
+      "return": 0.014764500000000116
+    }
+  ]
+}
