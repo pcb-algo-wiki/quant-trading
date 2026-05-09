@@ -199,9 +199,9 @@ execution:
 
 # ---------- 报警/通知 ----------
 notification:
-  enabled: false
+  enabled: true
   # 微信推送（PushPlus）
-  pushplus_token: ""
+  pushplus_token: "482ac3816f124fd59aa2e5a921bca9f5"
   # 钉钉
   dingtalk_webhook: ""
   # 邮件
