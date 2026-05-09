@@ -4,7 +4,8 @@ A股ETF量化回测 + 策略验证系统。
 
 ## 项目状态
 
-> 🔄 **迭代中**：新增多因子策略(TripleFactor)和股债轮动(StockBondRotation)，在熊市环境(2023-2024)中表现优于买入持有。
+> 🔄 **迭代中**：已完成多因子策略(Multi-Factor)、股债轮动(Rotation)、多策略集成(Ensemble)模块。
+> ⚠️ **重要发现**：基于2019-2024六年Walk-Forward验证，**择时策略在长周期上几乎无效**（平均夏普≈0），但在熊市/高波动环境中防守能力强。建议与买入持有组合使用。
 
 ## 功能模块
 
@@ -18,7 +19,8 @@ quant-trading/
 │   ├── trend.py            # 趋势策略：MA_Cross, MACD, Breakout
 │   ├── mean_reversion.py   # 均值回归：RSI, BollingerBand, KD
 │   ├── multi_factor.py     # 多因子策略：TripleFactor, MomentumFactor
-│   └── stock_bond_rotation.py  # 股债轮动策略
+│   ├── stock_bond_rotation.py  # 股债轮动策略
+│   └── ensemble.py         # 多策略集成：Ensemble, AdaptiveEnsemble, VotingEnsemble
 ├── backtest/
 │   ├── engine.py           # 回测引擎（V1基础版）
 │   └── risk.py             # 风控模块（V2增强版：止损/仓位/熔断）
@@ -70,17 +72,26 @@ python run.py --wf
 
 - **TripleFactor**（技术+基本面+情感三因子）：沪深300和创业板表现突出，分别跑赢基准+15.8%和+22.4%
 - **StockBondRotation**（股债轮动）：夏普比率最高(0.73)，最大回撤仅-10.8%，风险调整收益最优
-- **MomentumFactor**：动量条件过于严格（trend_up AND low_vol），信号稀少，效果差
+- **MomentumFactor**：移除trend/low_vol过滤器后表现大幅提升，中证500和创业板分别+18.93%和+19.66%
 
-## Walk-Forward验证（训练252天/测试63天）
+## Walk-Forward验证（2019-2024，训练252天/测试63天）
 
-| ETF | 最佳策略 | 夏普 | 跑赢基准概率 |
-|-----|---------|------|-------------|
-| 沪深300ETF | TrendSpread | **1.26** | 25% |
-| 中证500ETF | TrendSpread | 0.72 | 75% |
-| 创业板ETF | TripleFactor | 0.54 | 75% |
+> ⚠️ **重要结论**：扩展到6年19个测试窗口后，**所有策略平均夏普接近0或负值**，择时在长周期上几乎无效。
 
-> 样本量小（2023-2024仅4个测试窗口），结论参考性有限。
+| ETF | 最佳策略 | 跑赢基准 | 平均夏普 | 测试周期 |
+|-----|---------|---------|---------|---------|
+| 沪深300ETF | TrendSpread | 57% | -0.17 | 19 |
+| 中证500ETF | MomentumFactor | 58% | -0.04 | 19 |
+| 创业板ETF | MomentumFactor | 58% | +0.02 | 19 |
+
+### 分环境表现
+
+| 环境 | 代表时间段 | 策略表现 |
+|------|-----------|---------|
+| 牛市（2019-2021） | 疫情复苏 + 结构性行情 | 择时策略普遍**跑输**买入持有（过早止损/踏空） |
+| 熊市（2022-2024） | 俄乌/加息/AI泡沫破裂 | 择时策略**跑赢**买入持有（防守能力强） |
+
+> 跑赢基准概率57-58%，仅略好于随机掷硬币（50%）。**策略在熊市/高波动环境中有效，牛市中反而伤害收益。**
 
 ## 策略说明
 
@@ -139,8 +150,9 @@ result = engine.run(data, signals)
 - [x] `quick_backtest`对position=0.5处理错误 → 二值化修复
 - [x] 股债轮动datetime类型不匹配 → 统一Timestamp
 - [x] MomentumFactor波动率过滤窗口过大(252天) → 改为60天
-- [ ] MomentumFactor信号仍然稀少，需调整条件
-- [ ] Walk-Forward样本量小（仅4个窗口）
+- [x] MomentumFactor趋势/波动率过滤器伤害表现 → 默认关闭
+- [x] StockBondRotation compute_spread_signal早期返回DataFrame列缺失 → 补全所有列
+- [ ] Walk-Forward信号生成存在数据泄露风险（全量数据一次性生成信号）
 
 ## 免责声明
 
