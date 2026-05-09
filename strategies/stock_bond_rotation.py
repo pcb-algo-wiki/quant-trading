@@ -73,7 +73,10 @@ def compute_spread_signal(
     dates_ts = dates
     common = set(dates_ts) & set(bond_dates_ts)
     if len(common) == 0:
-        return pd.DataFrame({"position": 0})
+        return pd.DataFrame({
+            "position": [0], "date": [dates[0]], "spread_zscore": [0],
+            "close": [0], "bond_yield": [0], "equity_yield": [0]
+        })
 
     # 对齐：用Timestamp
     spread_vals = []
@@ -96,7 +99,10 @@ def compute_spread_signal(
             by_vals.append(by * 100)  # 存回百分比形式
 
     if not spread_vals:
-        return pd.DataFrame({"position": 0})
+        return pd.DataFrame({
+            "position": [0], "date": [dates[0]], "spread_zscore": [0],
+            "close": [0], "bond_yield": [0], "equity_yield": [0]
+        })
 
     spread = pd.Series(spread_vals, index=date_vals)
     close_aligned = pd.Series(close_vals, index=date_vals)
