@@ -17,66 +17,73 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 from data.stock_screener import scan_stocks, format_scan_results
-from data.stock_fetcher import SEMI_CONDUCTOR_STOCKS, CORE_30_STOCKS
+from data.stock_pool import get_pool, ALL_STOCKS, SEMI_CONDUCTOR
+from data.stock_pool import AI_COMPUTE, AI_APPLICATION, OPTICAL_COMMS, COMMS_EQUIPMENT
+from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, CONSUMER, FINANCE
 from utils.notify import pushplus_send
 
 
 def generate_stock_report() -> str:
-    """生成个股日报"""
+    """生成个股日报（全部产业链）"""
     lines = []
 
-    # 1. 半导体板块扫描
-    lines.append("=" * 60)
-    lines.append("📊 半导体/光伏板块个股扫描")
-    lines.append("=" * 60)
+    # 各板块定义
+    pools = [
+        ("AI算力", AI_COMPUTE),
+        ("AI应用", AI_APPLICATION),
+        ("光通信", OPTICAL_COMMS),
+        ("通信设备", COMMS_EQUIPMENT),
+        ("半导体", SEMI_POOL),
+        ("新能源车", NEW_ENERGY_VEHICLE),
+        ("军工", DEFENSE),
+    ]
 
-    df_semi = scan_stocks(SEMI_CONDUCTOR_STOCKS, use_cache=True)
-    buys = df_semi[df_semi["signal"] == "Buy"].head(5)
-    holds = df_semi[df_semi["signal"] == "Hold"].head(3)
-    sells = df_semi[df_semi["signal"] == "Sell"].head(3)
+    all_buys = []
+    all_sells = []
 
-    if len(buys) > 0:
-        lines.append("\n🟢 建议买入:")
-        for _, r in buys.iterrows():
-            lines.append(f"  {r['symbol']} {r['name']:<8} 得分{r['score']} 20日{r['ret_20d']:.1f}% 趋势{r['trend_strength']:.2f}%")
+    for sector_name, pool in pools:
+        df = scan_stocks(pool, use_cache=True)
+        buys = df[df["signal"] == "Buy"].head(3)
+        sells = df[df["signal"] == "Sell"].head(2)
+        all_buys.extend([(r, sector_name) for _, r in buys.iterrows()])
+        all_sells.extend([(r, sector_name) for _, r in sells.iterrows()])
 
-    if len(holds) > 0:
-        lines.append("\n🟡 观望:")
-        for _, r in holds.iterrows():
-            lines.append(f"  {r['symbol']} {r['name']:<8} 得分{r['score']} 20日{r['ret_20d']:.1f}%")
+        lines.append(f"{'='*50}")
+        lines.append(f"📊 {sector_name} ({len(pool)}只, Buy {len(buys)}只)")
+        lines.append(f"{'='*50}")
 
-    if len(sells) > 0:
-        lines.append("\n🔴 建议卖出:")
-        for _, r in sells.iterrows():
-            lines.append(f"  {r['symbol']} {r['name']:<8} 得分{r['score']} 20日{r['ret_20d']:.1f}%")
+        if len(buys) > 0:
+            lines.append("🟢 买入:")
+            for _, r in buys.iterrows():
+                lines.append(f"  {r['symbol']} {r['name']:<8} 得{r['score']:.0f} 20日{r['ret_20d']:+.1f}%")
+        if len(sells) > 0:
+            lines.append("🔴 卖出:")
+            for _, r in sells.iterrows():
+                lines.append(f"  {r['symbol']} {r['name']:<8} 得{r['score']:.0f} 20日{r['ret_20d']:+.1f}%")
+        lines.append("")
 
-    # 2. 核心30只
-    lines.append("\n" + "=" * 60)
-    lines.append("📊 核心30只龙头股扫描")
-    lines.append("=" * 60)
+    # 综合Top10
+    lines.append(f"{'='*50}")
+    lines.append("🏆 综合得分Top10")
+    lines.append(f"{'='*50}")
 
-    df_core = scan_stocks(CORE_30_STOCKS, use_cache=True)
-    df_core_slim = df_core[["symbol", "name", "signal", "score", "ret_20d", "trend_strength"]].copy()
-    df_core_slim["ret_20d"] = df_core_slim["ret_20d"].apply(lambda x: f"{x:.1f}%" if x else "N/A")
-    df_core_slim["trend_strength"] = df_core_slim["trend_strength"].apply(lambda x: f"{x:.2f}%" if x else "N/A")
+    df_all = scan_stocks(ALL_STOCKS, use_cache=True)
+    top10 = df_all.head(10)
+    for i, (_, r) in enumerate(top10.iterrows(), 1):
+        lines.append(f"  {i:2}. {r['symbol']} {r['name']:<8} [{r['sector']}] 得{r['score']:.0f} {r['signal']}")
 
-    buys_core = df_core[df_core["signal"] == "Buy"].head(5)
-    sells_core = df_core[df_core["signal"] == "Sell"].head(5)
+    # 危险持仓
+    sells_top = df_all[df_all["signal"] == "Sell"].head(5)
+    if len(sells_top) > 0:
+        lines.append("")
+        lines.append("⚠️ 建议卖出(趋势向下):")
+        for _, r in sells_top.iterrows():
+            lines.append(f"  {r['symbol']} {r['name']:<8} [{r['sector']}] 得{r['score']:.0f} 20日{r['ret_20d']:+.1f}%")
 
-    if len(buys_core) > 0:
-        lines.append("\n🟢 建议买入:")
-        for _, r in buys_core.iterrows():
-            lines.append(f"  {r['symbol']} {r['name']:<8} 得分{r['score']} 20日{r['ret_20d']:.1f}%")
-
-    if len(sells_core) > 0:
-        lines.append("\n🔴 建议卖出:")
-        for _, r in sells_core.iterrows():
-            lines.append(f"  {r['symbol']} {r['name']:<8} 得分{r['score']} 20日{r['ret_20d']:.1f}%")
-
-    # 3. 总结
-    buy_count_semi = (df_semi["signal"] == "Buy").sum()
-    buy_count_core = (df_core["signal"] == "Buy").sum()
-    lines.append(f"\n📈 整体信号: 半导体{buy_count_semi}只Buy / 核心{buy_count_core}只Buy")
+    # 统计
+    total_buys = (df_all["signal"] == "Buy").sum()
+    total_sells = (df_all["signal"] == "Sell").sum()
+    lines.append(f"\n📈 整体: {total_buys}只Buy / {total_sells}只Sell / {len(df_all)}只")
 
     return "\n".join(lines)
 

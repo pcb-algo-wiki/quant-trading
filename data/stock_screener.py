@@ -22,7 +22,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pandas as pd
 import numpy as np
 from typing import Optional
-from data.stock_fetcher import fetch_stock_cached, get_all_stocks, SEMI_CONDUCTOR_STOCKS
+from data.stock_fetcher import fetch_stock_cached
+from data.stock_pool import get_pool, ALL_STOCKS, SEMI_CONDUCTOR
+from data.stock_pool import AI_COMPUTE, AI_APPLICATION, OPTICAL_COMMS, COMMS_EQUIPMENT
+from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, CONSUMER, FINANCE
 
 
 def calc_momentum(df: pd.DataFrame, windows: list = [5, 20, 60]) -> pd.DataFrame:
@@ -153,29 +156,34 @@ def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True) -> pd
     扫描股票池，返回排名表
 
     Args:
-        stock_pool: dict of {symbol: (market, name, sector)}
+        stock_pool: dict of {symbol: (market, name, sector, industry, concept)}
         use_cache: 是否使用缓存
 
     Returns:
         DataFrame sorted by score descending
     """
     if stock_pool is None:
-        stock_pool = get_all_stocks()
+        stock_pool = ALL_STOCKS
 
     results = []
     for sym, info in stock_pool.items():
         mkt = info[0]
         name = info[1]
         sector = info[2] if len(info) > 2 else ""
+        industry = info[3] if len(info) > 3 else ""
+        concept = info[4] if len(info) > 4 else ""
 
         try:
             r = analyze_stock(sym, mkt, use_cache=use_cache)
             r["name"] = name
             r["sector"] = sector
+            r["industry"] = industry
+            r["concept"] = concept
             results.append(r)
         except Exception as e:
             results.append({
                 "symbol": sym, "market": mkt, "name": name, "sector": sector,
+                "industry": industry, "concept": concept,
                 "score": 0, "signal": "Error", "error": str(e)
             })
 
@@ -203,10 +211,24 @@ def format_scan_results(df: pd.DataFrame, top_n: int = 10) -> str:
 
 
 if __name__ == "__main__":
-    import sys
+    # 演示：扫描全部板块
     import time
+    t0 = time.time()
 
-    # 演示：扫描半导体板块
-    print("=== 半导体板块扫描 ===\n")
-    df = scan_stocks(SEMI_CONDUCTOR_STOCKS, use_cache=True)
-    print(format_scan_results(df, top_n=10))
+    df = scan_stocks(ALL_STOCKS, use_cache=True)
+    t1 = time.time()
+
+    print(f"扫描完成: {len(df)}只, 耗时{t1-t0:.1f}s")
+    print()
+
+    # 按板块汇总
+    print("=== 各板块信号统计 ===")
+    for sector in df["sector"].unique():
+        sub = df[df["sector"] == sector]
+        buys = (sub["signal"] == "Buy").sum()
+        print(f"{sector}: {len(sub)}只, {buys}只Buy")
+
+    print()
+    print("=== 综合Top15 ===")
+    for _, r in df.head(15).iterrows():
+        print(f"  {r['signal']:5} {r['score']:5.1f} {r['symbol']} {r['name']:<8} [{r['sector']}] {r['industry']}")
