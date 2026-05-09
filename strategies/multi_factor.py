@@ -1,413 +1,469 @@
 """
-多因子选股策略
-原理：结合多个技术因子（动量、波动率、成交量异常、趋势）构建综合评分
-选评分最高的ETF买入，定期再平衡
-
-适合ETF: 沪深300(510300)、中证500(510500)、创业板(159915)
+多因子策略 v2
+==================
+整合三大类因子：
+1. 技术因子：动量、波动率、成交量、趋势、RS、价格位置
+2. 基本面因子：PE、PB、股息率（历史分位）
+3. 情感因子：新闻情绪、资金流向
 
 用法:
-    from strategies.multi_factor import MultiFactorStrategy
-    strategy = MultiFactorStrategy(n_top=1, rebalance_days=5)
-    signals = strategy.generate(data)
+    from strategies.multi_factor import TripleFactorStrategy
+    strat = TripleFactorStrategy()
+    signals = strat.generate(price_data, fundamental_data, sentiment_data)
 """
 
 import numpy as np
 import pandas as pd
-from typing import List, Dict
+from typing import Optional, Dict, List
 
 
-class MultiFactorStrategy:
+# ============ 因子计算 ============
+
+def compute_technical_factors(df: pd.DataFrame) -> pd.DataFrame:
+    """计算技术因子"""
+    close = df["close"]
+    volume = df["volume"]
+    returns = close.pct_change()
+
+    # 1. 动量因子：20日收益率
+    momentum = close.pct_change(20)
+
+    # 2. 波动率因子：20日收益标准差（负向，越低越好）
+    volatility = returns.rolling(20).std()
+
+    # 3. 成交量比：今日量/20日均量
+    avg_vol = volume.rolling(20).mean()
+    vol_ratio = volume / (avg_vol + 1e-10)
+
+    # 4. MA金叉因子：(MA5-MA20)/MA20
+    ma5 = close.rolling(5).mean()
+    ma20 = close.rolling(20).mean()
+    ma_cross = (ma5 - ma20) / (ma20 + 1e-10)
+
+    # 5. 趋势斜率：MA5相对60日MA的位置
+    ma60 = close.rolling(60).mean()
+    trend_slope = (ma5 - ma60) / (ma60 + 1e-10)
+
+    # 6. 相对强弱：20日上涨天数比例
+    up_days = (returns > 0).rolling(20).sum()
+    rs = up_days / 20.0
+
+    # 7. 价格位置：当前价在20日高低价的位置
+    high20 = close.rolling(20).max()
+    low20 = close.rolling(20).min()
+    price_pos = (close - low20) / (high20 - low20 + 1e-10)
+
+    # 8. 动量加速度：动量变化率
+    mom_change = momentum.diff(5)
+
+    return pd.DataFrame({
+        "momentum": momentum,
+        "volatility": volatility,
+        "vol_ratio": vol_ratio,
+        "ma_cross": ma_cross,
+        "trend_slope": trend_slope,
+        "rs": rs,
+        "price_pos": price_pos,
+        "mom_accel": mom_change,
+    }, index=df.index)
+
+
+def compute_fundamental_factors(fund_df: pd.DataFrame, lookback: int = 60) -> pd.DataFrame:
     """
-    多因子评分策略
-    
-    因子（全部从价量数据构造，无需基本面）：
-    1. 动量因子 (Momentum): 20日收益率，越高越好
-    2. 波动率因子 (Volatility): 20日收益标准差的倒数，越低越好
-    3. 成交量因子 (Volume): 今日量/20日均量，越高说明资金关注
-    4. 趋势因子 (Trend): MA5/MA20斜率，越陡峭越好
-    5. 相对强弱 (RS): 20日涨跌天数比例
-    
-    综合评分：各因子Z-Score等权相加
+    计算基本面因子（基于历史分位）
+
+    Args:
+        fund_df: DataFrame with date, pe, pb, dividend_rate
+        lookback: 计算分位的窗口
     """
-    
-    def __init__(self, momentum_window: int = 20,
-                 vol_window: int = 20,
-                 volume_window: int = 20,
-                 trend_window: int = 20,
-                 n_top: int = 1,
-                 rebalance_days: int = 5):
-        self.momentum_window = momentum_window
-        self.vol_window = vol_window
-        self.volume_window = volume_window
-        self.trend_window = trend_window
-        self.n_top = n_top  # 每次选前n只
+    if fund_df.empty:
+        return pd.DataFrame()
+
+    result = pd.DataFrame(index=fund_df.index)
+
+    for col in ["pe", "pb", "dividend_rate"]:
+        if col in fund_df.columns:
+            # 滚动历史分位：当前值在过去N天中的位置（0~1）
+            vals = fund_df[col].values
+            n = len(vals)
+            pctile = np.zeros(n)
+            for i in range(n):
+                if i < lookback:
+                    pctile[i] = 0.5
+                else:
+                    window = vals[i - lookback:i + 1]
+                    pctile[i] = (vals[i] <= window).sum() / len(window)
+
+            result[col + "_pct"] = pctile
+
+    # PE倒数 = 盈利收益率（E/P）
+    if "pe" in fund_df.columns:
+        ep = 1.0 / (fund_df["pe"].values + 1e-10)
+        # 盈利收益率相对历史分位
+        ep_pct = np.zeros(len(ep))
+        for i in range(len(ep)):
+            if i < lookback:
+                ep_pct[i] = 0.5
+            else:
+                window = ep[i - lookback:i + 1]
+                ep_pct[i] = (ep[i] <= window).sum() / len(window)
+        result["ep_pct"] = ep_pct
+
+    return result
+
+
+def compute_sentiment_factors(sentiment_df: pd.DataFrame, lookback: int = 5) -> pd.DataFrame:
+    """
+    计算情感因子
+
+    Args:
+        sentiment_df: DataFrame with date, sentiment_score, fund_flow
+    """
+    if sentiment_df.empty:
+        return pd.DataFrame(index=pd.DatetimeIndex([]))
+
+    result = pd.DataFrame(index=sentiment_df.index)
+
+    if "sentiment_score" in sentiment_df.columns:
+        # 滚动平均情感得分
+        result["sentiment_ma"] = sentiment_df["sentiment_score"].rolling(lookback).mean()
+        # 情感变化
+        result["sentiment_chg"] = sentiment_df["sentiment_score"].diff(lookback)
+
+    if "fund_flow" in sentiment_df.columns:
+        # 资金流向的5日移动平均
+        result["fund_flow_ma"] = sentiment_df["fund_flow"].rolling(lookback).mean()
+        # 资金流向为正
+        result["fund_flow_pos"] = (sentiment_df["fund_flow"] > 0).astype(float)
+
+    return result
+
+
+def zscore(series: pd.Series, lookback: int = 60) -> pd.Series:
+    """滚动Z-Score标准化"""
+    ma = series.rolling(lookback, min_periods=20).mean()
+    std = series.rolling(lookback, min_periods=20).std()
+    return (series - ma) / (std + 1e-10)
+
+
+# ============ 三因子策略 ============
+
+class TripleFactorStrategy:
+    """
+    三因子综合评分策略
+
+    因子配置（可通过构造函数调整权重）:
+    - 技术因子: 动量(20%) + 波动率(10%) + 成交量(10%) + 趋势(20%) + RS(10%)
+    - 基本面因子: PE分位(15%) + 股息率分位(15%)
+    - 情感因子: 新闻情绪(10%) + 资金流向(10%)
+
+    择时规则:
+    - 综合评分 > 0.6分位 → 持仓
+    - 综合评分 < 0.4分位 → 空仓
+    - 中间 → 持有50%
+    """
+
+    def __init__(
+        self,
+        tech_weight: float = 0.50,
+        fund_weight: float = 0.30,
+        sent_weight: float = 0.20,
+        rebalance_days: int = 5,
+    ):
+        self.tech_weight = tech_weight
+        self.fund_weight = fund_weight
+        self.sent_weight = sent_weight
         self.rebalance_days = rebalance_days
-    
-    def _compute_factors(self, df: pd.DataFrame) -> pd.DataFrame:
-        """计算所有因子"""
-        close = df['close']
-        volume = df['volume']
-        
-        # 1. 动量因子：N日收益率
-        momentum = close.pct_change(self.momentum_window)
-        
-        # 2. 波动率因子：N日收益标准差的倒数
-        returns = close.pct_change()
-        volatility = returns.rolling(self.vol_window).std()
-        vol_factor = 1 / (volatility + 1e-10)
-        
-        # 3. 成交量因子：今日量/均量
-        avg_volume = volume.rolling(self.volume_window).mean()
-        vol_ratio = volume / (avg_volume + 1e-10)
-        
-        # 4. 趋势因子：MA5斜率
-        ma5 = close.rolling(5).mean()
-        ma20 = close.rolling(20).mean()
-        trend_slope = (ma5 / ma5.shift(self.trend_window) - 1)
-        ma_cross_factor = (ma5 - ma20) / (ma20 + 1e-10)
-        
-        # 5. 相对强弱：上涨天数比例
-        up_days = (returns > 0).rolling(self.momentum_window).sum()
-        rs_factor = up_days / self.momentum_window
-        
-        # 6.  价格位置：当前价在N日高低价的位置
-        high_n = close.rolling(self.momentum_window).max()
-        low_n = close.rolling(self.momentum_window).min()
-        price_position = (close - low_n) / (high_n - low_n + 1e-10)
-        
-        # 组合DataFrame
-        factors = pd.DataFrame({
-            'momentum': momentum,
-            'vol_factor': vol_factor,
-            'vol_ratio': vol_ratio,
-            'trend_slope': trend_slope,
-            'ma_cross': ma_cross_factor,
-            'rs': rs_factor,
-            'price_pos': price_position,
-        }, index=df.index)
-        
-        return factors
-    
-    def _zscore(self, s: pd.Series, lookback: int = 60) -> pd.Series:
-        """滚动Z-Score标准化"""
-        mean = s.rolling(lookback, min_periods=20).mean()
-        std = s.rolling(lookback, min_periods=20).std()
-        return (s - mean) / (std + 1e-10)
-    
-    def _score_factors(self, factors: pd.DataFrame) -> pd.Series:
-        """将各因子标准化后等权相加"""
-        scored = pd.Series(0.0, index=factors.index)
-        
-        # 动量：越高越好（正相关）
-        m = self._zscore(factors['momentum'])
-        scored += m
-        
-        # 波动率：越低越好（负相关）
-        v = self._zscore(factors['vol_factor'])
-        scored -= v
-        
-        # 成交量比：越高越好（正相关）
-        vr = self._zscore(factors['vol_ratio'])
-        scored += vr
-        
-        # 趋势斜率：越高越好
-        ts = self._zscore(factors['trend_slope'])
-        scored += ts
-        
-        # MA金叉：MA5>MA20越好
-        mc = self._zscore(factors['ma_cross'])
-        scored += mc
-        
-        # 相对强弱：越高越好
-        rs = self._zscore(factors['rs'])
-        scored += rs
-        
-        # 价格位置：中间偏上最好（不要追高）
-        # 使用距离0.5的绝对值，越接近0.5越好（不高不低）
-        pp = -(factors['price_pos'] - 0.5).abs()
-        pp_z = self._zscore(pp)
-        scored += pp_z
-        
-        return scored
-    
-    def generate(self, data: pd.DataFrame) -> pd.DataFrame:
+
+    def _score_technical(self, tech: pd.DataFrame) -> pd.Series:
+        """技术因子综合评分"""
+        score = pd.Series(0.0, index=tech.index)
+
+        # 动量：越高越好
+        score += zscore(tech["momentum"]).clip(-3, 3)
+
+        # 波动率：越低越好（负向）
+        score -= zscore(tech["volatility"]).clip(-3, 3)
+
+        # 成交量：越高越好
+        score += zscore(tech["vol_ratio"]).clip(-3, 3)
+
+        # MA金叉：越高越好
+        score += zscore(tech["ma_cross"]).clip(-3, 3)
+
+        # 趋势：越高越好
+        score += zscore(tech["trend_slope"]).clip(-3, 3)
+
+        # RS：越高越好
+        score += zscore(tech["rs"]).clip(-3, 3)
+
+        # 价格位置：0.3~0.7之间最好（不高不低）
+        pp_penalty = -(tech["price_pos"] - 0.5).abs()
+        score += zscore(pp_penalty).clip(-3, 3)
+
+        return score
+
+    def _score_fundamental(self, fund: pd.DataFrame) -> pd.Series:
+        """基本面因子综合评分"""
+        score = pd.Series(0.0, index=fund.index)
+
+        if "pe_pct" in fund.columns:
+            # PE分位越低越好（便宜）
+            score -= zscore(fund["pe_pct"]).clip(-3, 3)
+
+        if "dividend_rate_pct" in fund.columns:
+            # 股息率分位越高越好
+            score += zscore(fund["dividend_rate_pct"]).clip(-3, 3)
+
+        if "ep_pct" in fund.columns:
+            # 盈利收益率分位越高越好
+            score += zscore(fund["ep_pct"]).clip(-3, 3)
+
+        return score
+
+    def _score_sentiment(self, sent: pd.DataFrame) -> pd.Series:
+        """情感因子综合评分"""
+        score = pd.Series(0.0, index=sent.index)
+
+        if "sentiment_ma" in sent.columns:
+            score += zscore(sent["sentiment_ma"]).clip(-3, 3)
+
+        if "fund_flow_ma" in sent.columns:
+            score += zscore(sent["fund_flow_ma"]).clip(-3, 3)
+
+        return score
+
+    def generate(
+        self,
+        price_data: pd.DataFrame,
+        fund_data: Optional[pd.DataFrame] = None,
+        sentiment_data: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         """
         生成交易信号
-        
+
         Args:
-            data: 单只ETF的OHLC数据
-            
-        Returns:
-            DataFrame with columns: signal, score, position_size
+            price_data: OHLCV数据
+            fund_data: 基本面数据 (date, pe, pb, dividend_rate)
+            sentiment_data: 情感数据 (date, sentiment_score, fund_flow)
         """
-        # 计算因子
-        factors = self._compute_factors(data)
-        
-        # 计算综合评分
-        score = self._score_factors(factors)
-        
-        # 生成信号
-        signals = pd.DataFrame(index=data.index)
-        signals['date'] = data['date'] if 'date' in data.columns else data.index
-        signals['close'] = data['close']
-        signals['score'] = score
-        signals['signal'] = 0  # 0=空仓, 1=持仓
-        
-        # 定期再平衡：每rebalance_days天检查一次
-        n = len(signals)
-        position = 0
-        
+        # Step 1: 技术因子
+        tech = compute_technical_factors(price_data)
+        tech_score = self._score_technical(tech)
+
+        # Step 2: 基本面因子
+        if fund_data is not None and not fund_data.empty:
+            fund = compute_fundamental_factors(fund_data)
+            fund_score = self._score_fundamental(fund)
+        else:
+            fund_score = pd.Series(0.0, index=price_data.index)
+
+        # Step 3: 情感因子
+        if sentiment_data is not None and not sentiment_data.empty:
+            sent = compute_sentiment_factors(sentiment_data)
+            sent_score = self._score_sentiment(sent)
+        else:
+            sent_score = pd.Series(0.0, index=price_data.index)
+
+        # Step 4: 对齐所有评分到价格数据的索引
+        idx = price_data.index
+        tech_score = tech_score.reindex(idx, fill_value=0)
+        fund_score = fund_score.reindex(idx, fill_value=0)
+        sent_score = sent_score.reindex(idx, fill_value=0)
+
+        # Step 5: 加权综合评分
+        total_score = (
+            self.tech_weight * tech_score
+            + self.fund_weight * fund_score
+            + self.sent_weight * sent_score
+        )
+
+        # Step 6: 生成信号
+        signals = pd.DataFrame(index=idx)
+        signals["date"] = price_data["date"].values if "date" in price_data.columns else idx
+        signals["close"] = price_data["close"].values
+        signals["tech_score"] = tech_score.values
+        signals["fund_score"] = fund_score.values
+        signals["sent_score"] = sent_score.values
+        signals["total_score"] = total_score.values
+
+        # 仓位决策（基于评分的滚动分位）
+        position = pd.Series(0.0, index=idx)
+        lookback = 60
+        n = len(total_score)
+
         for i in range(n):
-            # 每天检查是否需要调仓
-            if i % self.rebalance_days == 0 and i >= 60:
-                # 取过去60天评分最高的窗口
-                lookback = 60
-                if i >= lookback:
-                    window_scores = score.iloc[i-lookback:i]
-                    current_score = score.iloc[i]
-                    
-                    # 评分超过历史60%分位且动量为正才入场
-                    threshold = window_scores.quantile(0.6)
-                    if current_score > threshold and factors['momentum'].iloc[i] > 0:
-                        position = 1
-                    else:
-                        position = 0
-            
-            signals.iloc[i, signals.columns.get_loc('signal')] = position
-        
+            if i < lookback + 5:
+                continue
+            window = total_score.iloc[i - lookback:i]
+            p60 = window.quantile(0.6)
+            p40 = window.quantile(0.4)
+            score = total_score.iloc[i]
+
+            # 额外条件：动量必须为正（避免逆势抄底）
+            mom_ok = tech["momentum"].iloc[i] > -0.05 if i < len(tech) else True
+
+            if score > p60 and mom_ok:
+                position.iloc[i] = 1.0
+            elif score < p40:
+                position.iloc[i] = 0.0
+            else:
+                position.iloc[i] = 0.5  # 中性持有50%
+
+        signals["position"] = position.values
+        signals["signal"] = position.diff().fillna(0)
+        signals["signal"] = signals["signal"].apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
+
         return signals.reset_index(drop=True)
 
 
-class MultiFactorBacktester:
+# ============ 简化版：纯技术 + 动量择时 ============
+
+class MomentumFactorStrategy:
     """
-    多因子策略回测引擎
+    动量因子策略（纯技术，无基本面/情感依赖）
+
+    核心：20日动量 + 波动率调整 + 趋势过滤
+
+    用法:
+        strat = MomentumFactorStrategy()
+        signals = strat.generate(price_data)
     """
-    
-    def __init__(self, initial_capital: float = 100000.0,
-                 commission: float = 0.0003,
-                 slippage: float = 0.0001):
-        self.initial_capital = initial_capital
-        self.commission = commission
-        self.slippage = slippage
-    
-    def run(self, signals: pd.DataFrame, prices: pd.DataFrame,
-            etf_name: str = '') -> dict:
-        """
-        运行单只ETF回测
-        """
-        # 对齐
-        common_idx = signals.index.intersection(prices.index)
-        sig = signals.loc[common_idx].reset_index(drop=True)
-        px = prices.loc[common_idx].reset_index(drop=True)
-        
-        equity = self.initial_capital
-        equity_curve = []
-        trades = []
-        position = 0
-        entry_price = 0
-        entry_date = ''
-        
-        for i in range(len(sig)):
-            current_signal = sig['signal'].iloc[i]
-            close = px['close'].iloc[i]
-            date = px['date'].iloc[i] if 'date' in px.columns else common_idx[i]
-            
-            # 入场
-            if current_signal == 1 and position == 0:
-                position = 1
-                entry_price = close * (1 + self.slippage)
-                entry_date = date
-            
-            # 出场
-            elif current_signal == 0 and position == 1:
-                exit_price = close * (1 - self.slippage)
-                pnl = (exit_price - entry_price) / entry_price * equity
-                cost = equity * self.commission
-                net_pnl = pnl - cost
-                equity += net_pnl
-                
-                trades.append({
-                    'date': date,
-                    'entry_date': entry_date,
-                    'type': 'long',
-                    'pnl': net_pnl,
-                    'return': net_pnl / self.initial_capital * 100,
-                    'equity': equity
-                })
-                position = 0
-            
-            equity_curve.append({
-                'date': date,
-                'equity': equity,
-                'position': position
-            })
-        
-        # 平仓
-        if position == 1:
-            close = px['close'].iloc[-1]
-            date = px['date'].iloc[-1] if 'date' in px.columns else common_idx[-1]
-            exit_price = close * (1 - self.slippage)
-            pnl = (exit_price - entry_price) / entry_price * equity
-            cost = equity * self.commission
-            net_pnl = pnl - cost
-            equity += net_pnl
-            trades.append({
-                'date': date,
-                'entry_date': entry_date,
-                'type': 'close',
-                'pnl': net_pnl,
-                'return': net_pnl / self.initial_capital * 100,
-                'equity': equity
-            })
-        
-        equity_df = pd.DataFrame(equity_curve)
-        
-        # 基准
-        buy_hold = (px['close'].iloc[-1] / px['close'].iloc[0] - 1) * 100
-        
-        return {
-            'equity_curve': equity_df,
-            'trades': pd.DataFrame(trades),
-            'total_return': (equity / self.initial_capital - 1) * 100,
-            'benchmark': buy_hold,
-            'n_trades': len(trades),
-            'final_equity': equity,
-            'etf_name': etf_name,
-        }
+
+    def __init__(self, mom_window: int = 20, vol_window: int = 20):
+        self.mom_window = mom_window
+        self.vol_window = vol_window
+
+    def generate(self, data: pd.DataFrame) -> pd.DataFrame:
+        close = data["close"]
+        returns = close.pct_change()
+
+        # 动量
+        momentum = close.pct_change(self.mom_window)
+
+        # 波动率（年化）
+        vol = returns.rolling(self.vol_window).std() * np.sqrt(252)
+
+        # 风险调整动量：动量/波动率
+        risk_adj_mom = momentum / (vol + 1e-10)
+
+        # 趋势过滤：MA60向上
+        ma60 = close.rolling(60).mean()
+        trend_up = close > ma60
+
+        # 波动率过滤：波动率低于历史中位数（避免高波动期）
+        vol_median = vol.rolling(252).median()
+        low_vol = vol < vol_median
+
+        # 综合信号
+        score = pd.Series(0.0, index=data.index)
+        score += zscore(momentum).clip(-3, 3) * 0.5
+        score += zscore(risk_adj_mom).clip(-3, 3) * 0.5
+
+        # 仓位
+        position = pd.Series(0.0, index=data.index)
+        lookback = 60
+
+        for i in range(lookback, len(score)):
+            p60 = score.iloc[i - lookback:i].quantile(0.6)
+            cond = (
+                (score.iloc[i] > p60)
+                & trend_up.iloc[i]
+                & low_vol.iloc[i]
+            )
+            position.iloc[i] = 1.0 if cond else 0.0
+
+        signal = position.diff().fillna(0).apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
+
+        result = pd.DataFrame({
+            "date": data["date"].values if "date" in data.columns else data.index,
+            "close": close.values,
+            "momentum": momentum.values,
+            "volatility": vol.values,
+            "risk_adj_mom": risk_adj_mom.values,
+            "trend_up": trend_up.values.astype(float),
+            "low_vol": low_vol.values.astype(float),
+            "score": score.values,
+            "position": position.values,
+            "signal": signal.values,
+        })
+
+        return result.reset_index(drop=True)
 
 
-class CrossSectionalPortfolio:
-    """
-    跨截面多因子组合
-    同时分析多只ETF，选评分最高的持有
-    """
-    
-    def __init__(self, etf_data: dict, strategy: MultiFactorStrategy,
-                 initial_capital: float = 100000.0):
-        self.etf_data = etf_data  # {name: dataframe}
-        self.strategy = strategy
-        self.initial_capital = initial_capital
-    
-    def run(self) -> dict:
-        """运行组合回测"""
-        # Step 1: 计算每只ETF的因子和评分
-        all_factors = {}
-        all_signals = {}
-        
-        for name, df in self.etf_data.items():
-            factors = self.strategy._compute_factors(df)
-            score = self.strategy._score_factors(factors)
-            signals = self.strategy.generate(df)
-            
-            all_factors[name] = factors
-            all_signals[name] = signals
-        
-        # Step 2: 每日跨截面评分，选择评分最高的ETF
-        # 对齐日期
-        common_dates = None
-        for df in self.etf_data.values():
-            dates = set(df['date']) if 'date' in df.columns else set(df.index)
-            if common_dates is None:
-                common_dates = dates
-            else:
-                common_dates = common_dates.intersection(dates)
-        
-        common_dates = sorted(list(common_dates))
-        
-        # 每日选择评分最高的ETF
-        daily_selection = []
-        for i, date in enumerate(common_dates):
-            if i < 60:  # 预热期
-                daily_selection.append(None)
-                continue
-            
-            scores = {}
-            for name, df in self.etf_data.items():
-                df_dates = df['date'] if 'date' in df.columns else df.index
-                if date in set(df_dates):
-                    idx = df[df['date'] == date].index[0] if 'date' in df.columns else date
-                    score = all_signals[name].loc[all_signals[name]['date'] == date, 'score'].values
-                    if len(score) > 0:
-                        scores[name] = score[0]
-            
-            if scores:
-                best_etf = max(scores, key=scores.get)
-                daily_selection.append(best_etf)
-            else:
-                daily_selection.append(None)
-        
-        # Step 3: 回测 - 持有评分最高的ETF
-        equity = self.initial_capital
-        equity_curve = []
-        current_holding = None
-        entry_price = 0
-        entry_date = None
-        
-        for i, date in enumerate(common_dates):
-            # 获取当日收盘价
-            prices = {}
-            for name, df in self.etf_data.items():
-                df_dates = df['date'] if 'date' in df.columns else df.index
-                if date in set(df_dates):
-                    row = df[df['date'] == date]
-                    if len(row) > 0:
-                        prices[name] = row['close'].values[0]
-            
-            if not prices or daily_selection[i] is None:
-                equity_curve.append({'date': date, 'equity': equity, 'holding': None})
-                continue
-            
-            best_etf = daily_selection[i]
-            current_price = prices.get(best_etf)
-            
-            if current_holding is None:
-                # 入场
-                if best_etf and current_price:
-                    current_holding = best_etf
-                    entry_price = current_price
-                    entry_date = date
-            else:
-                # 持仓中
-                if best_etf != current_holding or i % self.strategy.rebalance_days == 0:
-                    # 换仓或再平衡
-                    if current_holding in prices:
-                        exit_price = prices[current_holding]
-                        ret = (exit_price - entry_price) / entry_price
-                        equity *= (1 + ret)
-                    
-                    if best_etf and best_etf in prices:
-                        current_holding = best_etf
-                        entry_price = prices[best_etf]
-                        entry_date = date
-                    else:
-                        current_holding = None
-            
-            holding_name = current_holding if current_holding else 'none'
-            equity_curve.append({'date': date, 'equity': equity, 'holding': holding_name})
-        
-        # 计算基准
-        if common_dates:
-            first_date = common_dates[0]
-            last_date = common_dates[-1]
-            
-            benchmark_returns = []
-            for name, df in self.etf_data.items():
-                first_price = df[df['date'] == first_date]['close'].values
-                last_price = df[df['date'] == last_date]['close'].values
-                if len(first_price) > 0 and len(last_price) > 0:
-                    ret = (last_price[0] / first_price[0] - 1) * 100
-                    benchmark_returns.append(ret)
-            
-            benchmark = np.mean(benchmark_returns) if benchmark_returns else 0
+# ============ 快速回测器 ============
+
+def quick_backtest(
+    price_data: pd.DataFrame,
+    signals: pd.DataFrame,
+    initial_capital: float = 100_000,
+    commission: float = 0.0003,
+    slippage: float = 0.0001,
+) -> dict:
+    """快速回测"""
+
+    # 对齐
+    sig = signals.copy().reset_index(drop=True)
+    px = price_data.copy().reset_index(drop=True)
+
+    if "date" in sig.columns and "date" in px.columns:
+        common = set(sig["date"]) & set(px["date"])
+        sig = sig[sig["date"].isin(common)].reset_index(drop=True)
+        px = px[px["date"].isin(common)].reset_index(drop=True)
+
+    equity = initial_capital
+    position = 0
+    entry_price = 0
+    equity_curve = []
+    trades = []
+
+    for i in range(len(sig)):
+        close = px.at[i, "close"]
+        date = px.at[i, "date"] if "date" in px.columns else i
+        target_pos = sig.at[i, "position"]
+
+        # 交易
+        if target_pos > position and position == 0:  # 买入
+            cost = equity * (1 - commission - slippage)
+            position = 1
+            entry_price = close * (1 + slippage)
+            equity = cost
+
+        elif target_pos < position and position > 0:  # 卖出
+            proceeds = equity * (close / entry_price) * (1 - commission - slippage)
+            pnl = proceeds - equity
+            equity = proceeds
+            trades.append({"date": date, "pnl": pnl, "return": pnl / initial_capital})
+            position = 0
+            entry_price = 0
+
+        # 权益
+        if position > 0:
+            cur_equity = equity * (close / entry_price)
         else:
-            benchmark = 0
-        
-        equity_df = pd.DataFrame(equity_curve)
-        
-        return {
-            'equity_curve': equity_df,
-            'total_return': (equity / self.initial_capital - 1) * 100,
-            'benchmark': benchmark,
-            'final_equity': equity,
-            'daily_selection': dict(zip(common_dates, daily_selection)),
-        }
+            cur_equity = equity
+
+        equity_curve.append({"date": date, "equity": cur_equity, "position": position})
+
+    eq_df = pd.DataFrame(equity_curve)
+    buyhold = (px["close"].iloc[-1] / px["close"].iloc[0] - 1) * 100
+    strat_ret = (eq_df["equity"].iloc[-1] / initial_capital - 1) * 100
+
+    returns = eq_df["equity"].pct_change().dropna()
+    sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+
+    eq_df["peak"] = eq_df["equity"].cummax()
+    eq_df["dd"] = (eq_df["equity"] - eq_df["peak"]) / eq_df["peak"]
+    max_dd = eq_df["dd"].min() * 100
+
+    return {
+        "equity_curve": eq_df,
+        "trades": pd.DataFrame(trades),
+        "total_return": strat_ret,
+        "benchmark": buyhold,
+        "excess": strat_ret - buyhold,
+        "sharpe": sharpe,
+        "max_drawdown": max_dd,
+        "n_trades": len(trades),
+        "final_equity": eq_df["equity"].iloc[-1],
+    }

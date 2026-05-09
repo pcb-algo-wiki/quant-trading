@@ -196,6 +196,9 @@ def fetch_stock(
     end_dt = pd.to_datetime(end)
     df = df[(df["date"] >= start_dt) & (df["date"] <= end_dt)].copy()
 
+    # 去重：每个日期只保留第一条（有时新浪返回分钟+日线混合数据）
+    df = df.drop_duplicates(subset=["date"], keep="first").reset_index(drop=True)
+
     if len(df) > 0:
         # 保存完整缓存
         pd.to_pickle(df, cache_file)
@@ -253,6 +256,9 @@ def fetch_etf(
     start_dt = pd.to_datetime(start)
     end_dt = pd.to_datetime(end)
     df = df[(df["date"] >= start_dt) & (df["date"] <= end_dt)].copy()
+
+    # 去重：每个日期只保留第一条（有时新浪返回分钟+日线混合数据）
+    df = df.drop_duplicates(subset=["date"], keep="first").reset_index(drop=True)
 
     if len(df) > 0:
         pd.to_pickle(df, cache_file)

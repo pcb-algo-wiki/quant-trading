@@ -9,6 +9,8 @@
   python run.py --wf                  # Walk-forward验证
   python run.py --strategy MA_Cross --symbol 510300 --bt   # 单策略回测
   python run.py --strategy MA_Cross --symbol 510300 --risk  # 带风控回测
+  python run.py --multifactor         # 多因子策略回测
+  python run.py --rotation            # 股债轮动策略
 """
 
 import argparse
@@ -20,6 +22,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from data.fetcher import fetch_stock, fetch_etf, fetch_index
 from strategies.trend import MA_Cross, MACD_Strat, Breakout_20
 from strategies.mean_reversion import RSI_Strat, BollingerBand, KD_Strat
+from strategies.multi_factor import TripleFactorStrategy, MomentumFactorStrategy, quick_backtest
+from strategies.stock_bond_rotation import StockBondRotationStrategy, load_tnx
 from backtest.engine import BacktestEngine
 from backtest.risk import BacktestEngineV2, PositionConfig
 
@@ -185,6 +189,97 @@ def run_strategy_comparison():
               f"{r['annual_return']*100:>7.2f}% {r['max_drawdown']*100:>9.2f}% {r['sharpe_ratio']:>7.2f}")
 
 
+def run_multifactor_backtest(start="20230101", end="20241231"):
+    """多因子策略回测"""
+    print("\n" + "=" * 65)
+    print(f"  多因子策略回测 ({start} ~ {end})")
+    print("=" * 65)
+
+    for etf, etf_name in ETFS.items():
+        df = fetch_etf(etf, start, end)
+        if len(df) < 100:
+            continue
+
+        buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+        print(f"\n  {etf_name}({etf}) - 买入持有: {buyhold*100:.2f}%")
+
+        # 1. 动量因子策略（纯技术）
+        mom_strat = MomentumFactorStrategy()
+        mom_signals = mom_strat.generate(df)
+        mom_result = quick_backtest(df, mom_signals)
+
+        # 2. 三因子策略（技术+基本面，无情感数据）
+        try:
+            from data.fundamental import fetch_etf_fundamental
+            fund_df = fetch_etf_fundamental(etf, start, end)
+            triple_strat = TripleFactorStrategy(
+                tech_weight=0.60,
+                fund_weight=0.30,
+                sent_weight=0.10,
+            )
+            triple_signals = triple_strat.generate(df, fund_data=fund_df)
+            triple_result = quick_backtest(df, triple_signals)
+        except Exception as e:
+            print(f"    基本面数据加载失败: {e}")
+            triple_result = None
+
+        # 对比表格
+        print(f"  {'策略':<22} {'总收益':>8} {'夏普':>7} {'最大回撤':>9} {'交易数':>7}")
+        print(f"  {'-'*60}")
+        print(f"  {'动量因子(MomentumFactor)':<22} {mom_result['total_return']:>7.2f}% "
+              f"{mom_result['sharpe']:>7.2f} {mom_result['max_drawdown']:>8.2f}% "
+              f"{mom_result['n_trades']:>6}")
+        if triple_result:
+            print(f"  {'三因子(TripleFactor)':<22} {triple_result['total_return']:>7.2f}% "
+                  f"{triple_result['sharpe']:>7.2f} {triple_result['max_drawdown']:>8.2f}% "
+                  f"{triple_result['n_trades']:>6}")
+
+        # 与买入持有对比
+        print(f"  {'买入持有':<22} {buyhold*100:>7.2f}% {'基准':>7} {'--':>9} {'--':>6}")
+
+
+def run_rotation_backtest(start="20230101", end="20241231"):
+    """股债轮动策略回测"""
+    print("\n" + "=" * 65)
+    print(f"  股债轮动策略 ({start} ~ {end})")
+    print("=" * 65)
+
+    # 加载国债收益率
+    tnx = load_tnx()
+    if tnx.empty:
+        print("  ⚠️ 国债收益率数据为空，跳过轮动策略")
+        return
+
+    for etf, etf_name in ETFS.items():
+        df = fetch_etf(etf, start, end)
+        if len(df) < 100:
+            continue
+
+        buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+        print(f"\n  {etf_name}({etf}) - 买入持有: {buyhold*100:.2f}%")
+
+        # 轮动策略
+        strat = StockBondRotationStrategy(mode="trend_spread", rebalance_days=10)
+        signals = strat.generate(df, bond_data=tnx)
+        if signals.empty:
+            print(f"    无信号数据")
+            continue
+
+        result = quick_backtest(df, signals)
+
+        print(f"  {'轮动(Trend+Spread)':<22} {result['total_return']:>7.2f}% "
+              f"{result['sharpe']:>7.2f} {result['max_drawdown']:>8.2f}% "
+              f"{result['n_trades']:>6}")
+
+        # 纯利差模式
+        strat2 = StockBondRotationStrategy(mode="spread", rebalance_days=10)
+        sig2 = strat2.generate(df, bond_data=tnx)
+        r2 = quick_backtest(df, sig2)
+        print(f"  {'轮动(Spread Only)':<22} {r2['total_return']:>7.2f}% "
+              f"{r2['sharpe']:>7.2f} {r2['max_drawdown']:>8.2f}% "
+              f"{r2['n_trades']:>6}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="量化交易系统 v2")
     parser.add_argument("--strategy", default="all", help="策略名")
@@ -195,6 +290,8 @@ def main():
     parser.add_argument("--etf", action="store_true", help="ETF回测")
     parser.add_argument("--all", action="store_true", help="完整5年回测")
     parser.add_argument("--wf", action="store_true", help="Walk-forward分析")
+    parser.add_argument("--multifactor", action="store_true", help="多因子策略")
+    parser.add_argument("--rotation", action="store_true", help="股债轮动策略")
     parser.add_argument("--start", default="20230101", help="开始日期")
     parser.add_argument("--end", default="20241231", help="结束日期")
 
@@ -205,6 +302,10 @@ def main():
         wf_main()
     elif args.all:
         run_full_backtest()
+    elif args.multifactor:
+        run_multifactor_backtest(args.start, args.end)
+    elif args.rotation:
+        run_rotation_backtest(args.start, args.end)
     elif args.etf:
         run_etf_backtest(args.start, args.end, args.risk)
     elif args.compare:
