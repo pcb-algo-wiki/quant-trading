@@ -333,10 +333,34 @@ def main():
     parser.add_argument("--ensemble", action="store_true", help="集成策略")
     parser.add_argument("--start", default="20230101", help="开始日期")
     parser.add_argument("--end", default="20241231", help="结束日期")
+    parser.add_argument("--update-data", action="store_true", help="更新结构化数据存储")
+    parser.add_argument("--update-knowledge", action="store_true", help="更新知识库卡片")
+    parser.add_argument("--industry-map", default="", help="构建行业图谱（传行业名或all）")
+    parser.add_argument("--train-ml", action="store_true", help="训练ML基线并评估")
+    parser.add_argument("--ml-backtest", action="store_true", help="运行ML策略回测")
+    parser.add_argument("--daily-pipeline", action="store_true", help="运行一站式每日流水线")
 
     args = parser.parse_args()
 
-    if args.wf:
+    if args.update_data:
+        from scripts.update_data_store import run as update_data_store_run
+        print(update_data_store_run())
+    elif args.update_knowledge:
+        from scripts.update_knowledge import run as update_knowledge_run
+        print(update_knowledge_run())
+    elif args.industry_map:
+        from scripts.build_industry_graph import run as build_industry_graph_run
+        print(build_industry_graph_run())
+    elif args.train_ml:
+        from scripts.train_ml_strategy import run as train_ml_run
+        print(train_ml_run(symbol=args.symbol, start=args.start, end=args.end))
+    elif args.ml_backtest:
+        from scripts.run_ml_backtest import run as run_ml_backtest_run
+        print(run_ml_backtest_run(symbol=args.symbol, start=args.start, end=args.end))
+    elif args.daily_pipeline:
+        from scripts.daily_pipeline import run_daily_pipeline
+        print(run_daily_pipeline())
+    elif args.wf:
         from scripts.walk_forward import main as wf_main
         wf_main()
     elif args.all:
