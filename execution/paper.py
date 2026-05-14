@@ -101,10 +101,20 @@ class PaperTrader:
       execute_filled() → 执行成交，更新持仓
     """
 
-    def __init__(self, initial_cash: float = 100_000, commission: float = 0.0003):
+    def __init__(
+        self,
+        initial_cash: float = 100_000,
+        commission: float = 0.0003,
+        slippage_pct: float = 0.0,
+        fill_ratio: float = 1.0,
+        latency_ms: int = 0,
+    ):
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.commission = commission
+        self.slippage_pct = slippage_pct
+        self.fill_ratio = max(0.0, min(1.0, fill_ratio))
+        self.latency_ms = latency_ms
         self.risk_policy = PortfolioRiskPolicy()
         self.positions: Dict[str, Position] = {}
         self.orders: List[Order] = []
@@ -183,9 +193,16 @@ class PaperTrader:
 
     def _fill_order(self, order: Order, fill_price: float, fill_shares: float):
         """执行成交"""
-        order.avg_fill_price = fill_price
-        order.filled_shares = fill_shares
-        order.status = OrderStatus.FILLED
+        # 仿真参数：成交比例 + 滑点
+        executable_shares = fill_shares * self.fill_ratio
+        if order.side == OrderSide.BUY:
+            actual_price = fill_price * (1 + self.slippage_pct)
+        else:
+            actual_price = fill_price * (1 - self.slippage_pct)
+
+        order.avg_fill_price = actual_price
+        order.filled_shares = executable_shares
+        order.status = OrderStatus.FILLED if executable_shares >= order.target_shares else OrderStatus.PARTIAL
 
         self._trade_counter += 1
         trade = Trade(
@@ -194,17 +211,17 @@ class PaperTrader:
             date=order.date,
             symbol=order.symbol,
             side=order.side,
-            price=fill_price,
-            shares=fill_shares,
+            price=actual_price,
+            shares=executable_shares,
         )
 
         if order.side == OrderSide.BUY:
-            self._execute_buy(order, fill_price, fill_shares, trade)
+            self._execute_buy(order, actual_price, executable_shares, trade)
         else:
-            self._execute_sell(order, fill_price, fill_shares, trade)
+            self._execute_sell(order, actual_price, executable_shares, trade)
 
         self.trades.append(trade)
-        logger.info(f"[Fill] {order.side.value} {order.symbol} {fill_shares}@{fill_price:.3f}")
+        logger.info(f"[Fill] {order.side.value} {order.symbol} {executable_shares}@{actual_price:.3f}")
 
     def _execute_buy(self, order: Order, price: float, shares: float, trade: Trade):
         """执行买入"""
@@ -303,6 +320,21 @@ class PaperTrader:
             "risk_note": risk_note,
             "summary": summary,
         }
+
+    def validate_execution_consistency(self) -> dict:
+        """
+        检查订单-成交-持仓-账户一致性。
+        """
+        issues = []
+        calc_equity = self.cash + sum(p.market_value for p in self.positions.values())
+        if calc_equity < 0:
+            issues.append("negative_equity")
+        for order in self.orders:
+            if order.status == OrderStatus.FILLED and order.filled_shares <= 0:
+                issues.append(f"filled_without_shares:{order.order_id}")
+            if order.status == OrderStatus.PARTIAL and order.filled_shares >= order.target_shares:
+                issues.append(f"partial_but_full:{order.order_id}")
+        return {"ok": len(issues) == 0, "issues": issues, "equity": calc_equity}
 
     def sell(self, date: str, symbol: str, price: float, shares: float = 0) -> bool:
         """快捷卖出"""
