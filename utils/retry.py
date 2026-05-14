@@ -170,7 +170,8 @@ class FallbackChain:
         """安全版本：全部失败时返回default"""
         try:
             return self.execute()
-        except Exception:
+        except Exception as e:
+            logger.error(f"[FallbackChain] execute_safe fallback due to: {e}")
             return default
 
 
