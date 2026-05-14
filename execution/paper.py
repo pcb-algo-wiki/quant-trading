@@ -15,6 +15,8 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 import logging
 
+from execution.risk_controls import PortfolioRiskPolicy
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,6 +105,7 @@ class PaperTrader:
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.commission = commission
+        self.risk_policy = PortfolioRiskPolicy()
         self.positions: Dict[str, Position] = {}
         self.orders: List[Order] = []
         self.trades: List[Trade] = []
@@ -255,6 +258,17 @@ class PaperTrader:
         """快捷买入（市价单，不经过订单状态机）"""
         if shares == 0 and amount > 0:
             shares = amount / price
+        buy_notional = shares * price
+        existing_position_value = self.positions[symbol].market_value if symbol in self.positions else 0.0
+        allowed, reason = self.risk_policy.check_buy_allowed(
+            current_equity=self.get_equity(),
+            current_positions=len(self.positions),
+            existing_position_value=existing_position_value,
+            buy_notional=buy_notional,
+        )
+        if not allowed:
+            logger.warning(f"[Risk] buy rejected {symbol}: {reason}")
+            return False
 
         self._order_counter += 1
         order = Order(
@@ -268,6 +282,27 @@ class PaperTrader:
         self._fill_order(order, price, shares)
         self.orders.append(order)
         return order.status == OrderStatus.FILLED
+
+    def build_trade_recommendation(
+        self,
+        symbol: str,
+        side: OrderSide,
+        model_score: float,
+        industry_score: float,
+        risk_note: str,
+    ) -> dict:
+        summary = (
+            f"{side.value} {symbol} | model={model_score:.3f} "
+            f"industry={industry_score:.3f} | risk={risk_note}"
+        )
+        return {
+            "symbol": symbol,
+            "side": side.value,
+            "model_score": model_score,
+            "industry_score": industry_score,
+            "risk_note": risk_note,
+            "summary": summary,
+        }
 
     def sell(self, date: str, symbol: str, price: float, shares: float = 0) -> bool:
         """快捷卖出"""
