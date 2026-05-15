@@ -20,3 +20,7 @@ joblib>=1.3.0
 
 # Data API (optional)
 tushare>=1.4.0
+
+# US Market Data
+yfinance>=0.2.0
+kaleido>=0.2.0

@@ -56,43 +56,99 @@ def get_latest_prices(etfs: list) -> dict:
 
 def run_strategy_check(symbol: str, strategy_name: str = "MA(15,20)") -> dict:
     """
-    运行策略检查
-    Returns: {signal, score, last_return, trend}
+    运行多策略集成检查（MA + 布林带 + MACD + RSI）
+    Returns: {signal, score, last_return, trend, indicators}
     """
     try:
         from data.fetcher import fetch_etf
-        from strategies.ma_optimized import MAOptimizedStrategy
-        from backtest.engine import BacktestEngine
 
         # 使用Yahoo数据（最新）
         os.environ["USE_YAHOO"] = "1"
         df = fetch_etf(symbol, "20230101", date.today().strftime("%Y%m%d"))
-        if df.empty or len(df) < 30:
+        if df.empty or len(df) < 60:
             return {"signal": "unknown", "error": "数据不足"}
 
-        # 简单MA信号
-        ma_fast = df["close"].rolling(15).mean()
-        ma_slow = df["close"].rolling(20).mean()
-        current = df["close"].iloc[-1]
+        close = df["close"]
+        current = close.iloc[-1]
 
-        if ma_fast.iloc[-1] > ma_slow.iloc[-1]:
-            signal = "buy"
-        elif ma_fast.iloc[-1] < ma_slow.iloc[-1]:
-            signal = "sell"
+        # ── 指标计算 ─────────────────────────────────────────────
+        # 1. MA 均线系统
+        ma_fast = close.rolling(15).mean()
+        ma_slow = close.rolling(20).mean()
+        ma_signal = "buy" if ma_fast.iloc[-1] > ma_slow.iloc[-1] else "sell" if ma_fast.iloc[-1] < ma_slow.iloc[-1] else "hold"
+
+        # 2. 布林带（20日，2标准差）
+        bb_mid = close.rolling(20).mean()
+        bb_std = close.rolling(20).std()
+        bb_upper = bb_mid + 2 * bb_std
+        bb_lower = bb_mid - 2 * bb_std
+        bb_upper_val = float(bb_upper.iloc[-1]) if not bb_upper.isna().all() else 0
+        bb_lower_val = float(bb_lower.iloc[-1]) if not bb_lower.isna().all() else 0
+        bb_mid_val = float(bb_mid.iloc[-1]) if not bb_mid.isna().all() else 0
+        bb_position = (current - bb_lower_val) / (bb_upper_val - bb_lower_val) if bb_upper_val != bb_lower_val else 0.5
+        # 布林带信号：价格触及下轨买入，上轨卖出
+        if current < bb_lower.iloc[-1]:
+            bb_signal = "buy"
+        elif current > bb_upper.iloc[-1]:
+            bb_signal = "sell"
         else:
-            signal = "hold"
+            bb_signal = "hold"
+
+        # 3. MACD（12,26,9）
+        ema12 = close.ewm(span=12).mean()
+        ema26 = close.ewm(span=26).mean()
+        macd_line = ema12 - ema26
+        signal_line = macd_line.ewm(span=9).mean()
+        macd_hist = macd_line - signal_line
+        macd_signal = "buy" if macd_hist.iloc[-1] > 0 else "sell" if macd_hist.iloc[-1] < 0 else "hold"
+
+        # 4. RSI（14）
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss.replace(0, 0.001)
+        rsi = 100 - (100 / (1 + rs))
+        rsi_val = rsi.iloc[-1] if not rsi.isna().all() else 50
+        rsi_signal = "buy" if rsi_val < 40 else "sell" if rsi_val > 70 else "hold"
+
+        # ── 集成投票 ─────────────────────────────────────────────
+        votes = [ma_signal, bb_signal, macd_signal, rsi_signal]
+        buy_votes = votes.count("buy")
+        sell_votes = votes.count("sell")
+
+        # 最终信号：少数服从多数，平局为 hold
+        if buy_votes > sell_votes:
+            final_signal = "buy"
+        elif sell_votes > buy_votes:
+            final_signal = "sell"
+        else:
+            final_signal = "hold"
+
+        # 信号强度：0~4，4票全同最强
+        signal_strength = max(buy_votes, sell_votes)
 
         # 近5日收益
-        recent_return = (df["close"].iloc[-1] / df["close"].iloc[-5] - 1) * 100 if len(df) >= 5 else 0
-        ytd_return = (df["close"].iloc[-1] / df["close"].iloc[0] - 1) * 100
+        recent_return = (current / close.iloc[-5] - 1) * 100 if len(close) >= 5 else 0
+        ytd_return = (current / close.iloc[0] - 1) * 100
 
         return {
-            "signal": signal,
+            "signal": final_signal,
+            "signal_strength": signal_strength,  # 0~4票
             "last_price": round(current, 3),
             "ma_fast": round(ma_fast.iloc[-1], 3) if not ma_fast.isna().all() else 0,
             "ma_slow": round(ma_slow.iloc[-1], 3) if not ma_slow.isna().all() else 0,
             "recent_5d_return": round(recent_return, 2),
             "ytd_return": round(ytd_return, 2),
+            # 新增指标
+            "bb_upper": round(bb_upper_val, 3),
+            "bb_mid": round(bb_mid_val, 3),
+            "bb_lower": round(bb_lower_val, 3),
+            "bb_position": round(bb_position, 2),  # 0=下轨，1=上轨
+            "macd_hist": round(float(macd_hist.iloc[-1]) if not macd_hist.isna().all() else 0, 4),
+            "macd_signal": macd_signal,
+            "rsi": round(rsi_val, 1),
+            "rsi_signal": rsi_signal,
+            "votes": f"{buy_votes}Buy/{sell_votes}Sell",  # 如 "3Buy/1Sell"
         }
     except Exception as e:
         return {"signal": "error", "error": str(e)}
@@ -156,6 +212,37 @@ def get_pcr_signals_data() -> dict:
         return {"error": str(e)}
 
 
+def get_industry_chain_report() -> dict:
+    """
+    获取产业链分析报告（快速模式）
+    从缓存读取，无网络请求
+    """
+    try:
+        from data.chain_signals import generate_chain_signal, list_chains
+
+        chains = list_chains()
+        results = []
+        for k in chains:
+            try:
+                sig = generate_chain_signal(k)
+                results.append({
+                    'chain': sig.chain,
+                    'composite': sig.composite,
+                    'action': sig.action,
+                    'cycle': sig.cycle_position,
+                    'top_picks': sig.top_picks[:3],
+                    'reason': sig.reason,
+                })
+            except Exception:
+                pass
+
+        # 按综合得分排序
+        results.sort(key=lambda x: -x['composite'])
+        return {'chains': results, 'count': len(results)}
+    except Exception as e:
+        return {'error': str(e), 'chains': []}
+
+
 def get_stock_picks() -> dict:
     """
     获取个股精选（从缓存读取，秒级）
@@ -203,6 +290,7 @@ def build_report(
     fund_flow: dict,
     pcr_data: dict = None,
     stock_picks: dict = None,
+    chain_report: dict = None,
 ) -> dict:
     """构建报告数据"""
 
@@ -263,6 +351,7 @@ def build_report(
         "pcr_data": pcr_data or {},
         "news_count": sentiment.get("news_count", 0),
         "stock_picks": stock_picks or {},
+        "chain_report": chain_report or {},
         "strategies": [],
     }
 
@@ -276,6 +365,17 @@ def build_report(
             "ma_slow": result.get("ma_slow", 0),
             "recent_5d": f"{result.get('recent_5d_return', 0):+.2f}%",
             "ytd": f"{result.get('ytd_return', 0):+.2f}%",
+            # 新增指标
+            "bb_upper": result.get("bb_upper", 0),
+            "bb_mid": result.get("bb_mid", 0),
+            "bb_lower": result.get("bb_lower", 0),
+            "bb_position": result.get("bb_position", 0.5),
+            "macd_hist": result.get("macd_hist", 0),
+            "macd_signal": result.get("macd_signal", "?"),
+            "rsi": result.get("rsi", 50),
+            "rsi_signal": result.get("rsi_signal", "?"),
+            "votes": result.get("votes", "?"),
+            "signal_strength": result.get("signal_strength", 0),
         })
 
     return report
@@ -311,12 +411,29 @@ def print_report(report: dict):
         if vol_desc:
             print(f"           {vol_desc}")
     print()
-    print(f"  {'标的':<10} {'信号':>5} {'最新价':>8} {'MA15':>8} {'MA20':>8} {'5日':>8} {'今年来':>8}")
-    print(f"  {'-'*60}")
+    print(f"  {'标的':<10} {'信号':>5} {'最新价':>8} {'投票':>10} {'RSI':>5} {'MACD':>8} {'布林带位置':>12}")
+    print(f"  {'-'*70}")
     for s in report["strategies"]:
-        print(f"  {s['name']:<10} {s['signal']:>5} {s['price']:>8.3f} "
-              f"{s['ma_fast']:>8.3f} {s['ma_slow']:>8.3f} "
-              f"{s['recent_5d']:>8} {s['ytd']:>8}")
+        sig_emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}.get(s["signal"], "⚪")
+        raw_bp = s.get("bb_position", 0.5)
+        bp = float(raw_bp) if not isinstance(raw_bp, (int, float)) else raw_bp
+        if bp < 0.2:
+            bb_bar = "⚡接近下轨"
+        elif bp > 0.8:
+            bb_bar = "⚡接近上轨"
+        else:
+            bb_bar = f"{(bp*100):.0f}%位置"
+        macd = s.get("macd_hist", 0)
+        macd_val = float(macd) if not isinstance(macd, (int, float)) else macd
+        macd_str = f"{macd_val:+.4f}"
+        print(f"  {s['name']:<10} {sig_emoji}{s['signal']:>4} {s['price']:>8.3f} "
+              f"{s.get('votes','?'):>10} {s.get('rsi',0):>5.1f} {macd_str:>8} {bb_bar:>12}")
+
+    print()
+    print(f"  {'标的':<10} {'MA15':>8} {'MA20':>8} {'5日涨跌':>8} {'今年来':>8}")
+    print(f"  {'-'*50}")
+    for s in report["strategies"]:
+        print(f"  {s['name']:<10} {s['ma_fast']:>8.3f} {s['ma_slow']:>8.3f} {s['recent_5d']:>8} {s['ytd']:>8}")
 
     # 个股精选
     stock_picks = report.get('stock_picks', {})
@@ -385,10 +502,59 @@ def push_report(report: dict) -> bool:
                 lines.append(f"<tr><td>{sector}</td><td>{names}</td></tr>")
             lines.append("</table>")
 
-        content = "\n".join(lines)
+        # ── 修复：把 report 完整数据通过 notify(data=...) 推送 ──
         title = f"📊 {report['title']} | {report['composite_signal']}"
 
-        return notify(title, "INFO", pushplus_token=os.environ.get("PUSHPLUS_TOKEN", ""))
+        # 把各字段拆出来塞 data，保持和 print_report 一致
+        data = {
+            "📈 市场情绪": f"{report['market_sentiment']}（{report['news_count']}条新闻）",
+            "💰 资金流向": report['fund_flow'],
+            "🎯 综合信号": report['composite_signal'].replace("🟢 ", "").replace("🔴 ", "").replace("⚪ ", ""),
+        }
+
+        # 期权PCR
+        pcr_data = report.get('pcr_data', {})
+        if pcr_data.get('510300_pcr'):
+            pcr_desc = pcr_data.get('510300_interp', '') or pcr_data.get('vol_desc', '')
+            data["📊 期权PCR"] = f"vol_PCR={pcr_data['510300_pcr']:.3f} | oi_PCR={pcr_data.get('510300_oi_pcr', 0):.3f} | {pcr_desc}"
+
+        # ETF表格数据
+        for s in report["strategies"]:
+            sig_emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}.get(s['signal'], "⚪")
+            bp = s.get("bb_position", 0.5)
+            bb_desc = f"布林{bp*100:.0f}%位置" if 0.2 <= bp <= 0.8 else ("接近下轨" if bp < 0.2 else "接近上轨")
+            data[f"{s['name']} {sig_emoji}"] = (
+                f"现价={s['price']:.3f} | 投票={s.get('votes','?')} | RSI={s.get('rsi',0):.0f} | "
+                f"MACD={s.get('macd_hist', 0):+.4f} | {bb_desc} | "
+                f"5日={s['recent_5d']} | 今年={s['ytd']}"
+            )
+
+        # 个股精选
+        stock_picks = report.get('stock_picks', {})
+        if stock_picks.get('picks') and not stock_picks.get('error'):
+            picks_lines = []
+            for sector, stocks in list(stock_picks['picks'].items())[:5]:
+                names = ' / '.join([f"{s['name']}({s['score']}分)" for s in stocks])
+                picks_lines.append(f"{sector}: {names}")
+            if picks_lines:
+                data["📈 个股精选"] = " | ".join(picks_lines)
+
+        # 产业链分析
+        chain_report = report.get('chain_report', {})
+        if chain_report.get('chains'):
+            chain_lines = []
+            for c in chain_report['chains'][:4]:
+                emoji = {'buy': '🟢', 'rotate': '🔄', 'hold': '⚪', 'exit': '🔴'}.get(c['action'], '⚪')
+                chain_lines.append(f"{emoji}{c['chain']}({c['composite']:.2f})")
+            data["🔗 产业链"] = " | ".join(chain_lines)
+            top_picks = []
+            for c in chain_report['chains'][:3]:
+                if c.get('top_picks'):
+                    top_picks.extend(c['top_picks'][:2])
+            if top_picks:
+                data["  产业链首选"] = ", ".join(top_picks[:6])
+
+        return notify(title, "INFO", data=data, pushplus_token=os.environ.get("PUSHPLUS_TOKEN", ""))
     except Exception as e:
         print(f"[ERROR] 推送失败: {e}")
         return False
@@ -510,9 +676,24 @@ def main():
         else:
             print(f"  个股: 缓存为空（需先运行全量扫描 scripts/stock_daily.py）")
 
+    # 6. 产业链分析
+    print("\n⏳ 获取产业链分析...")
+    chain_report = get_industry_chain_report()
+    if chain_report.get('error'):
+        print(f"  产业链: 获取失败 ({chain_report.get('error')})")
+    elif chain_report.get('chains'):
+        print(f"  产业链: {chain_report['count']}条产业链")
+        for c in chain_report['chains'][:3]:
+            action_emoji = {'buy': '🟢', 'rotate': '🔄', 'hold': '⚪', 'exit': '🔴'}.get(c['action'], '⚪')
+            print(f"    {action_emoji} {c['chain']}: 综合{c['composite']:.2f} | {c['cycle']}期 | {c['action']}")
+            if c['top_picks']:
+                print(f"       首选: {', '.join(c['top_picks'])}")
+    else:
+        print("  产业链: 暂无数据")
+
     # 构建报告
     print("\n⏳ 构建报告...")
-    report = build_report(strategy_results, sentiment, fund_flow, pcr_data, stock_picks)
+    report = build_report(strategy_results, sentiment, fund_flow, pcr_data, stock_picks, chain_report)
     print_report(report)
 
     # 推送

@@ -25,36 +25,44 @@ from typing import Optional
 from data.stock_fetcher import fetch_stock_cached
 from data.stock_pool import get_pool, ALL_STOCKS, SEMI_CONDUCTOR
 from data.stock_pool import AI_COMPUTE, AI_APPLICATION, OPTICAL_COMMS, COMMS_EQUIPMENT
-from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, CONSUMER, FINANCE
+from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, AEROSPACE, CONSUMER, FINANCE
 from pathlib import Path
 import pickle, os
 from datetime import datetime, timedelta
 
 
-SCAN_CACHE = Path(__file__).parent / "cache" / "stock_scan_cache.pkl"
-SCAN_CACHE.parent.mkdir(exist_ok=True, parents=True)
+SCAN_CACHE_DIR = Path(__file__).parent / "cache" / "stock_scan"
+SCAN_CACHE_DIR.mkdir(exist_ok=True, parents=True)
 SCAN_CACHE_STALENESS_HOURS = 6
 
 
-def _load_scan_cache() -> Optional[pd.DataFrame]:
-    """读取扫描缓存（如果存在且不过期）"""
-    if not SCAN_CACHE.exists():
+def _get_cache_path(pool_key: str) -> Path:
+    """每个板块独立缓存文件"""
+    safe_key = pool_key.replace("/", "_").replace(" ", "_")
+    return SCAN_CACHE_DIR / f"{safe_key}.pkl"
+
+
+def _load_scan_cache(pool_key: str = "ALL") -> Optional[pd.DataFrame]:
+    """读取指定板块的扫描缓存（如果存在且不过期）"""
+    cache_path = _get_cache_path(pool_key)
+    if not cache_path.exists():
         return None
     try:
-        mtime = os.path.getmtime(SCAN_CACHE)
+        mtime = os.path.getmtime(cache_path)
         age_hours = (datetime.now().timestamp() - mtime) / 3600
         if age_hours > SCAN_CACHE_STALENESS_HOURS:
             return None
-        with open(SCAN_CACHE, 'rb') as f:
+        with open(cache_path, 'rb') as f:
             return pickle.load(f)
     except Exception:
         return None
 
 
-def _save_scan_cache(df: pd.DataFrame):
-    """保存扫描缓存"""
+def _save_scan_cache(df: pd.DataFrame, pool_key: str = "ALL"):
+    """保存扫描缓存到指定板块"""
+    cache_path = _get_cache_path(pool_key)
     try:
-        with open(SCAN_CACHE, 'wb') as f:
+        with open(cache_path, 'wb') as f:
             pickle.dump(df, f)
     except Exception:
         pass
@@ -195,12 +203,24 @@ def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True, force
     Returns:
         DataFrame sorted by score descending
     """
+    # 确定板块标识（用 sector 字段或 "ALL"）
+    if stock_pool is None:
+        pool_key = "ALL"
+    else:
+        # 从 pool 里取第一个的 sector 作为 key
+        first_info = next(iter(stock_pool.values()), None)
+        pool_key = first_info[2] if first_info and len(first_info) > 2 else "ALL"
+
     # 尝试读缓存（除非强制刷新）
-    if not force_refresh:
-        cached = _load_scan_cache()
-        if cached is not None and len(cached) > 50:
-            # 只更新最近新上市的股票
-            return cached
+    if not force_refresh and use_cache:
+        cached = _load_scan_cache(pool_key)
+        if cached is not None and len(cached) > 0:
+            # 只返回本板块的股票（过滤）
+            pool_symbols = set(stock_pool.keys()) if stock_pool else set()
+            if pool_symbols:
+                cached = cached[cached['symbol'].isin(pool_symbols)].copy()
+            if len(cached) >= len(pool_symbols) * 0.8:  # 至少80%命中
+                return cached.sort_values("score", ascending=False).reset_index(drop=True)
 
     if stock_pool is None:
         stock_pool = ALL_STOCKS
@@ -230,8 +250,17 @@ def scan_stocks(stock_pool: Optional[dict] = None, use_cache: bool = True, force
     df = pd.DataFrame(results)
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
 
-    # 保存缓存
-    _save_scan_cache(df)
+    # 保存本板块缓存
+    _save_scan_cache(df, pool_key)
+
+    # 同时追加到 ALL 缓存（去重合并）
+    all_cached = _load_scan_cache("ALL")
+    if all_cached is not None:
+        # 合并：同 symbol 取本板块结果（更新），其余保留
+        combined = pd.concat([all_cached, df]).drop_duplicates(subset="symbol", keep="last")
+        _save_scan_cache(combined, "ALL")
+    else:
+        _save_scan_cache(df, "ALL")
 
     return df
 

@@ -19,7 +19,7 @@ import pandas as pd
 from data.stock_screener import scan_stocks, format_scan_results
 from data.stock_pool import get_pool, ALL_STOCKS, SEMI_CONDUCTOR
 from data.stock_pool import AI_COMPUTE, AI_APPLICATION, OPTICAL_COMMS, COMMS_EQUIPMENT
-from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, CONSUMER, FINANCE
+from data.stock_pool import SEMI_CONDUCTOR as SEMI_POOL, NEW_ENERGY_VEHICLE, DEFENSE, AEROSPACE, CONSUMER, FINANCE
 from utils.notify import pushplus_send
 
 
@@ -36,6 +36,7 @@ def generate_stock_report() -> str:
         ("半导体", SEMI_POOL),
         ("新能源车", NEW_ENERGY_VEHICLE),
         ("军工", DEFENSE),
+        ("航天", AEROSPACE),
     ]
 
     all_buys = []
