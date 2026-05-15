@@ -59,3 +59,33 @@ class TestConfig:
         """repr"""
         cfg = Config(config_path)
         assert "loaded=True" in repr(cfg)
+
+    def test_env_reference_resolution(self, tmp_path, monkeypatch):
+        """YAML中${VAR}可解析为环境变量"""
+        config = {
+            "notification": {
+                "pushplus_token": "${PUSHPLUS_TOKEN}",
+            }
+        }
+        path = tmp_path / "env_config.yaml"
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(config, f, allow_unicode=True)
+
+        monkeypatch.setenv("PUSHPLUS_TOKEN", "token-from-env")
+        cfg = Config(str(path))
+        assert cfg.get("notification.pushplus_token") == "token-from-env"
+
+    def test_env_reference_missing_falls_back_empty(self, tmp_path, monkeypatch):
+        """环境变量缺失时，${VAR}解析为空字符串"""
+        config = {
+            "notification": {
+                "pushplus_token": "${PUSHPLUS_TOKEN}",
+            }
+        }
+        path = tmp_path / "env_config.yaml"
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(config, f, allow_unicode=True)
+
+        monkeypatch.delenv("PUSHPLUS_TOKEN", raising=False)
+        cfg = Config(str(path))
+        assert cfg.get("notification.pushplus_token") == ""

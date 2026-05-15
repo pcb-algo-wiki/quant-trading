@@ -12,9 +12,11 @@ utils/config.py
 
 import yaml
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 from copy import deepcopy
+from dotenv import load_dotenv
 
 
 class Config:
@@ -36,11 +38,29 @@ class Config:
         path = Path(self._path)
         if not path.exists():
             raise FileNotFoundError(f"配置文件不存在: {self._path}")
-        
+
+        # 优先加载项目根目录 .env，允许 config.yaml 通过 ${VAR} 引用环境变量
+        project_root = path.parent if path.is_file() else Path(__file__).parent.parent
+        env_path = project_root / ".env"
+        load_dotenv(dotenv_path=env_path, override=False)
+
         with open(path, "r", encoding="utf-8") as f:
             self._raw = yaml.safe_load(f) or {}
+        self._raw = self._resolve_env_refs(self._raw)
         self._loaded = True
         self._apply_env_overrides()
+
+    def _resolve_env_refs(self, obj: Any) -> Any:
+        """递归解析形如 ${VAR_NAME} 的环境变量引用。"""
+        if isinstance(obj, dict):
+            return {k: self._resolve_env_refs(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._resolve_env_refs(v) for v in obj]
+        if isinstance(obj, str):
+            m = re.fullmatch(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", obj.strip())
+            if m:
+                return os.environ.get(m.group(1), "")
+        return obj
 
     def _apply_env_overrides(self):
         """环境变量覆盖（优先级最高）"""
@@ -51,6 +71,7 @@ class Config:
             "QUANT_SLIPPAGE": ("backtest", "slippage"),
             "QUANT_NEWS_ENABLED": ("news", "enabled"),
             "QUANT_LOG_LEVEL": ("logging", "level"),
+            "PUSHPLUS_TOKEN": ("notification", "pushplus_token"),
         }
         for env_key, (section, key) in env_map.items():
             val = os.environ.get(env_key)

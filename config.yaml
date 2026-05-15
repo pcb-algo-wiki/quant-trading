@@ -201,7 +201,7 @@ execution:
 notification:
   enabled: true
   # 微信推送（PushPlus）
-  pushplus_token: "482ac3816f124fd59aa2e5a921bca9f5"
+  pushplus_token: "${PUSHPLUS_TOKEN}"
   # 钉钉
   dingtalk_webhook: ""
   # 邮件
