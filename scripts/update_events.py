@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
-import json
+import sys, json
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.realtime_news import get_realtime_news
 from research.events import build_events_from_news

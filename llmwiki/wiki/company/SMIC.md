@@ -1,0 +1,17 @@
+---
+node_id: SMIC
+type: company
+name: 中芯国际
+sources: []
+updated_at: 2026-05-16T10:41:59
+generator: rule
+confidence: 1.0
+---
+
+# 中芯国际 (SMIC)
+
+**类型**: company
+
+## 所属行业 (1 个)
+- semiconductor
+

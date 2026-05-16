@@ -278,7 +278,7 @@ providers:
 # ---------- Phase 7 重型组件（默认关，按需开启）----------
 knowledge:
   graph:
-    enabled: false           # daily_pipeline 是否构建知识图谱（默认关，验收后再开）
+    enabled: true           # ✅ 开启知识图谱构建（已验证）
     neighbor_hops: 2         # HybridRetriever 图召回跳数
   graph_backend: networkx    # networkx | neo4j（Phase 7 升级后改为 neo4j）
   neo4j:

@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
-import json
+import sys, json
 from pathlib import Path
+
+# 确保项目根目录在 sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.realtime_news import get_realtime_news
 from knowledge.sources import from_news_rows

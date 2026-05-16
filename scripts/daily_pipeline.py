@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import time
 import logging
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +119,11 @@ def run_daily_pipeline(notify: bool = False, dry_run: bool = False) -> dict:
     if cfg.get("knowledge.graph.enabled", False):
         from scripts.build_knowledge_graph import run as build_kg_run
         result["knowledge_graph"] = _run_step("knowledge_graph", build_kg_run, timings, errors)
+        # sync_llmwiki 依赖 graph 完成
+        from scripts.sync_llmwiki import sync
+        def _sync_wiki():
+            return sync(write=True)
+        result["sync_llmwiki"] = _run_step("sync_llmwiki", _sync_wiki, timings, errors)
 
     if cfg.get("filings.enabled", False):
         def _filings():
