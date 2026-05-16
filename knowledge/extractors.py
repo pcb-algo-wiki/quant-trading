@@ -22,6 +22,72 @@ _SYMBOL_PATTERN = re.compile(
     r"(?<![0-9A-Za-z])(?:[0-9]{6}|[0-9]{5}\.HK|[A-Z]{1,5})(?![0-9A-Za-z])"
 )
 
+# 产业链 segment 关键词别名表（中文/英文关键词 -> segment_id）
+_SEGMENT_ALIASES: dict[str, str] = {
+    # ── 存储/HBM ──────────────────────────────────────────────
+    "HBM": "memory:midstream:hbm_packaging",
+    "高带宽内存": "memory:midstream:hbm_packaging",
+    "HBM内存": "memory:midstream:hbm_packaging",
+    "内存芯片": "memory:midstream:chip_fab",
+    "存储芯片": "memory:midstream:chip_fab",
+    "NAND": "memory:midstream:chip_fab",
+    "DRAM": "memory:midstream:chip_fab",
+    "服务器内存": "memory:downstream:server_memory",
+    # ── AI 算力 ─────────────────────────────────────────────
+    "AI芯片": "ai_compute:upstream:chips",
+    "算力芯片": "ai_compute:upstream:chips",
+    "AI算力": "ai_compute:upstream:chips",
+    "智能计算": "ai_compute:upstream:chips",
+    "数据中心": "ai_compute:midstream:data_center",
+    "服务器": "ai_compute:midstream:servers",
+    "AI服务器": "ai_compute:midstream:servers",
+    "云端": "ai_compute:midstream:cloud",
+    "大模型": "ai_compute:downstream:model_training",
+    "模型训练": "ai_compute:downstream:model_training",
+    "推理": "ai_compute:downstream:enterprise_ai",
+    # ── GPU ─────────────────────────────────────────────────
+    "GPU": "gpu:midstream:gpu_design",
+    "图形处理器": "gpu:midstream:gpu_design",
+    "AI加速": "gpu:downstream:training",
+    "训练芯片": "gpu:downstream:training",
+    # ── 半导体 ──────────────────────────────────────────────
+    "晶圆代工": "semiconductor:midstream:foundry",
+    "晶圆厂": "semiconductor:midstream:foundry",
+    "Foundry": "semiconductor:midstream:foundry",
+    "芯片设计": "semiconductor:midstream:ic_design",
+    "IC设计": "semiconductor:midstream:ic_design",
+    "封装测试": "semiconductor:midstream:packaging_test",
+    "先进封装": "semiconductor:midstream:packaging_test",
+    "半导体材料": "semiconductor:upstream:materials",
+    "硅片": "semiconductor:upstream:materials",
+    "光刻胶": "semiconductor:upstream:materials",
+    # ── 半导体设备 ──────────────────────────────────────────
+    "半导体设备": "equipment:midstream:wafer_equip",
+    "晶圆设备": "equipment:midstream:wafer_equip",
+    "光刻机": "equipment:midstream:wafer_equip",
+    "刻蚀机": "equipment:midstream:wafer_equip",
+    "薄膜沉积": "equipment:midstream:wafer_equip",
+    # ── EDA/IP ──────────────────────────────────────────────
+    "EDA": "eda_ip:midstream:EDA_tools",
+    "电子设计自动化": "eda_ip:midstream:EDA_tools",
+    "芯片IP": "eda_ip:upstream:IP_cores",
+    "IP核": "eda_ip:upstream:IP_cores",
+    # ── 光通信 ──────────────────────────────────────────────
+    "光模块": "optical_comms:midstream:optical_modules",
+    "800G光模块": "optical_comms:midstream:optical_modules",
+    "400G光模块": "optical_comms:midstream:optical_modules",
+    "光器件": "optical_comms:midstream:optical_devices",
+    "光通信": "optical_comms:upstream:optical_chips",
+    "光芯片": "optical_comms:upstream:optical_chips",
+    "光纤": "optical_comms:downstream:data_center_network",
+    # ── 封装/PCB ────────────────────────────────────────────
+    "先进封装": "packaging:midstream:advanced_pkging",
+    "封装载板": "packaging:upstream:substrate",
+    "PCB": "packaging:midstream:PCB",
+    "印制电路板": "packaging:midstream:PCB",
+    "IC载板": "packaging:upstream:substrate",
+}
+
 # 政策相关正则（轻量；Phase 3 会扩展）
 _POLICY_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("five_year_plan", re.compile(r"十[四五六]五[规规划]|五年规划")),
@@ -60,7 +126,9 @@ class RuleEntityExtractor:
             v: k for k, v in self.company_by_symbol.items() if v
         }
         self.taxonomy = taxonomy or DEFAULT_TAXONOMY
-        self._segment_aliases = self._build_segment_aliases(extra_segment_aliases or {})
+        self._segment_aliases = self._build_segment_aliases(
+            {**_SEGMENT_ALIASES, **(extra_segment_aliases or {})}
+        )
 
     # ---------- 构建 ----------
 

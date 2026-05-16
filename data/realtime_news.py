@@ -272,23 +272,33 @@ def fetch_etf_news(sec_code: str) -> List[Dict]:
 def get_realtime_news() -> pd.DataFrame:
     """获取所有实时新闻，合并去重，按时间排序。
 
-    策略：对最新 15 条新闻主动抓取正文（其余仅标题），
-          保证实体抽取有足够文本量，同时控制耗时。
+    策略：
+    1. 并行抓三大快讯源（东方财富/新浪/同花顺）
+    2. 对最新15条抓全文（增强实体抽取）
+    3. 批量抓个股新闻（akshare，按48家产业链公司代码）
     """
-    all_news = []
+    all_news: list[dict] = []
 
+    # 三大快讯源
     sources = [
         ("东方财富", fetch_eastmoney_news),
         ("新浪财经", fetch_sina_news),
         ("同花顺", fetch_tonghuashun_news),
     ]
-
     for name, fetch_fn in sources:
         try:
             news = fetch_fn()
             all_news.extend(news)
         except Exception as e:
             print(f"{name}获取失败: {e}")
+
+    # 个股新闻（akshare，按产业链公司代码）
+    try:
+        stock_news = fetch_stock_news()
+        all_news.extend(stock_news)
+        print(f"个股新闻: {len(stock_news)}条")
+    except Exception as e:
+        print(f"个股新闻获取失败: {e}")
 
     if not all_news:
         return pd.DataFrame()
@@ -307,9 +317,10 @@ def get_realtime_news() -> pd.DataFrame:
 
     CONTENT_FETCH_LIMIT = 15
     for i in range(min(CONTENT_FETCH_LIMIT, len(df))):
-        if not df.at[i, "url"]:
+        url = df.at[i, "url"]
+        if not url or pd.isna(url):
             continue
-        content = fetch_article_content(df.at[i, "url"])
+        content = fetch_article_content(str(url))
         if content:
             df.at[i, "content"] = content
 
@@ -363,6 +374,56 @@ def get_policy_news(df: pd.DataFrame) -> pd.DataFrame:
                 '量化宽松', '缩表', '国债', 'CPI', 'PMI', '外汇', '汇率', '房地产', '楼市']
     mask = df['title'].str.contains('|'.join(keywords), na=False)
     return df[mask].reset_index(drop=True)
+
+
+# A股/港股/美股代码映射（symbol -> 股票代码）
+STOCK_CODE_MAP: dict[str, str] = {
+    # A股
+    "688981": "688981", "三安光电": "三安光电",
+    "北方华创": "北方华创", "中微公司": "中微公司",
+    "长电科技": "长电科技", "通富微电": "通富微电",
+    "韦尔股份": "韦尔股份", "卓胜微": "卓胜微",
+    "华大九天": "华大九天", "中科飞测": "中科飞测",
+    "拓荆科技": "拓荆科技", "沪硅产业": "沪硅产业",
+    "天岳先进": "天岳先进", "有研硅": "有研硅",
+    "中际旭创": "中际旭创", "光迅科技": "光迅科技",
+    "博创科技": "博创科技", "新易盛": "新易盛",
+    "天邑股份": "天邑股份", "天孚通信": "天孚通信",
+    "深南电路": "深南电路", "生益科技": "生益科技",
+    "南亚新材": "南亚新材", "工业富联": "工业富联",
+    "浪潮信息": "浪潮信息", "中科曙光": "中科曙光",
+    "华虹半导体": "华虹半导体",
+    # 美股
+    "百度": "BIDU",
+    "NVDA": "NVDA", "AMD": "AMD", "AVGO": "AVGO",
+    "INTC": "INTC", "MSFT": "MSFT", "GOOGL": "GOOGL",
+    "AMZN": "AMZN", "META": "META", "SK_Hynix": "SK Hynix",
+    "MU": "MU", "ASML": "ASML", "AMAT": "AMAT",
+    "LRCX": "LRCX", "ACM": "ACM", "SNPS": "SNPS", "CDNS": "CDNS",
+}
+
+
+def fetch_stock_news() -> list[dict]:
+    """按产业链公司股票代码批量抓取个股新闻（akshare，每公司10条）。"""
+    news_list: list[dict] = []
+    for sym, code in STOCK_CODE_MAP.items():
+        if not code or len(str(code)) > 6:
+            continue
+        try:
+            import akshare as ak
+            df = ak.stock_news_em(symbol=str(code))
+            for _, row in df.iterrows():
+                news_list.append({
+                    "source": f"个股({code})",
+                    "title": row.get("新闻标题", ""),
+                    "content": row.get("新闻内容", ""),
+                    "time": str(row.get("发布时间", "")),
+                    "url": row.get("新闻链接", ""),
+                    "symbol": sym,
+                })
+        except Exception:
+            pass
+    return news_list
 
 
 # ============ 主程序 ============
