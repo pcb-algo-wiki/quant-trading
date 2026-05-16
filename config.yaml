@@ -170,13 +170,7 @@ news:
   timeout: 10
 
 # ---------- 知识底座 (Phase 1: llmwiki + 轻量 GraphRAG) ----------
-knowledge:
-  graph:
-    enabled: false           # daily_pipeline 是否构建知识图谱（默认关，验收后再开）
-    neighbor_hops: 2         # HybridRetriever 图召回跳数
-  retrieval:
-    top_k: 10
-    rrf_k: 60               # Reciprocal Rank Fusion 平滑常数
+# Phase 7 扩展：graph_backend/neo4j 配置见文件底部 providers/knowledge 段
 
 # ---------- 基本面摄取 (Phase 2: cninfo + edgar + 防幻觉) ----------
 filings:
@@ -191,7 +185,7 @@ filings:
 # ---------- 情感分析与政策传导 (Phase 3) ----------
 sentiment:
   enabled: false          # feature flag（默认关，手动开启后执行 run_sentiment_replay.py）
-  backend: snownlp        # snownlp | finbert（Phase 7 升级）
+  backend: snownlp        # snownlp | finbert（Phase 7 升级后改为 finbert）
   decay: 0.5              # BFS 衰减系数（每跳乘以该值）
   max_hops: 2             # 最大传播跳数
 
@@ -277,4 +271,19 @@ providers:
     token: ""                  # 填入后自动激活 TushareProvider
   polygon:
     api_key: ""                # 填入后自动激活 PolygonProvider
+
+# ---------- Phase 7 重型组件（默认关，按需开启）----------
+knowledge:
+  graph:
+    enabled: false           # daily_pipeline 是否构建知识图谱（默认关，验收后再开）
+    neighbor_hops: 2         # HybridRetriever 图召回跳数
+  graph_backend: networkx    # networkx | neo4j（Phase 7 升级后改为 neo4j）
+  neo4j:
+    uri: "bolt://localhost:7687"
+    user: neo4j
+    password: ""
+    database: neo4j
+  retrieval:
+    top_k: 10
+    rrf_k: 60               # Reciprocal Rank Fusion 平滑常数
 
