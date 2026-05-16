@@ -160,12 +160,20 @@ def run(
     company_dict: dict[str, str] | None = None,
 ) -> dict:
     """从 data_store 增量构建知识图谱，返回统计。"""
+    with get_connection(db_path) as conn:
+        # 加载公司节点，构建 company_dict（symbol -> name）
+        if company_dict is None:
+            rows = conn.execute(
+                "SELECT node_id, name FROM knowledge_nodes WHERE type='company'"
+            ).fetchall()
+            company_dict = {r[0]: r[1] for r in rows if r[0]}
+
     extractor = RuleEntityExtractor(
-        company_dict=company_dict or {},
+        company_dict=company_dict,
         taxonomy=DEFAULT_TAXONOMY,
     )
 
-    stats = {"docs": 0, "nodes_touched": 0, "edges_touched": 0}
+    stats = {"docs": 0, "nodes_touched": 0, "edges_touched": 0, "evidence_written": 0}
 
     with get_connection(db_path) as conn:
         try:

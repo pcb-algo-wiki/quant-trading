@@ -36,6 +36,8 @@ def fill_news_and_events() -> dict:
 
             # 写入 news_items
             content = str(row.get("content", "") or "")
+            if content in ("", "nan", "None"):
+                content = ""
             url = str(row.get("url", "") or "")
             published = str(row.get("time", "") or now)
             content_hash = hash((title, published, url, content))

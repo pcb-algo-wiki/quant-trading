@@ -3,7 +3,7 @@ node_id: packaging
 type: industry
 name: 封装/PCB
 sources: []
-updated_at: 2026-05-16T11:48:55
+updated_at: 2026-05-16T11:56:47
 generator: rule
 confidence: 1.0
 ---

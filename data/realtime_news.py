@@ -83,6 +83,61 @@ def _curl(url: str, headers: dict = None, timeout: int = 10) -> str:
     return body
 
 
+def fetch_article_content(url: str, timeout: int = 15) -> str:
+    """从文章URL抓取正文。返回纯文本，失败返回空字符串。"""
+    if not url or len(url) < 10:
+        return ""
+    try:
+        html = _curl(url, {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Referer": "/".join(url.split("/")[:3])
+        }, timeout=timeout)
+        if not html or len(html) < 200:
+            return ""
+        # 优先提取 <article> 或 class="article" 块
+        m = re.search(r'<article[^>]*>(.*?)</article>', html, re.DOTALL)
+        if not m:
+            m = re.search(r'class="article"[^>]*>(.*?)</div>', html, re.DOTALL)
+        if not m:
+            # 找含中文最多的 <p> 段落集合
+            paragraphs = re.findall(r'<p[^>]*>(.*?)</p>', html, re.DOTALL)
+            cn_paras = [
+                re.sub(r'<[^>]+>', '', p).strip()
+                for p in paragraphs
+                if re.search(r'[\u4e00-\u9fff]{4,}', p)
+            ]
+            if cn_paras:
+                text = " ".join(cn_paras)
+            else:
+                return ""
+        else:
+            text = m.group(1)
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+
+        # 清理噪声：同花顺/东财导航残渣、客户端下载提示
+        noise_patterns = [
+            r'下载客户端[^\u4e00-\u9fff]*',
+            r'登录首页[^\u4e00-\u9fff]*',
+            r'行情商城[^\u4e00-\u9fff]*',
+            r'首页股票要闻精华正文',
+            r'来源：\S+',
+            r'免责声明|版权声明|相关阅读',
+            r'更多\d+条|关注[^\u4e00-\u9fff]+',
+            r'加载中[^\u4e00-\u9fff]{0,30}(?:正文)?',
+            r'暂无快讯',
+            r'投资者关系|关于同花顺|法律声明|软件下载|操作说明',
+        ]
+        for pat in noise_patterns:
+            text = re.sub(pat, '', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        # 丢弃太短的正文
+        return text if len(text) > 50 else ""
+    except Exception:
+        return ""
+
+
 # ============ 东方财富快讯 ============
 
 def fetch_eastmoney_news(pages: int = 1, pagesize: int = 50) -> List[Dict]:
@@ -215,40 +270,49 @@ def fetch_etf_news(sec_code: str) -> List[Dict]:
 # ============ 综合新闻聚合 ============
 
 def get_realtime_news() -> pd.DataFrame:
-    """获取所有实时新闻，合并去重，按时间排序"""
+    """获取所有实时新闻，合并去重，按时间排序。
+
+    策略：对最新 15 条新闻主动抓取正文（其余仅标题），
+          保证实体抽取有足够文本量，同时控制耗时。
+    """
     all_news = []
-    
-    # 并行获取三大源
-    import concurrent.futures
-    
+
     sources = [
         ("东方财富", fetch_eastmoney_news),
         ("新浪财经", fetch_sina_news),
         ("同花顺", fetch_tonghuashun_news),
     ]
-    
+
     for name, fetch_fn in sources:
         try:
             news = fetch_fn()
             all_news.extend(news)
         except Exception as e:
             print(f"{name}获取失败: {e}")
-    
+
     if not all_news:
         return pd.DataFrame()
-    
+
     df = pd.DataFrame(all_news)
-    
+
     # 情感分析
-    df['情感得分'] = df['title'].apply(sentiment_score)
-    
+    df["情感得分"] = df["title"].apply(sentiment_score)
+
     # 去重（按标题前50字）
-    df['title_short'] = df['title'].str[:50]
-    df = df.drop_duplicates(subset=['title_short']).drop(columns=['title_short'])
-    
-    # 排序
-    df = df.sort_values('datetime', ascending=False).reset_index(drop=True)
-    
+    df["title_short"] = df["title"].str[:50]
+    df = df.drop_duplicates(subset=["title_short"]).drop(columns=["title_short"])
+
+    # 排序，取最新15条抓正文
+    df = df.sort_values("datetime", ascending=False).reset_index(drop=True)
+
+    CONTENT_FETCH_LIMIT = 15
+    for i in range(min(CONTENT_FETCH_LIMIT, len(df))):
+        if not df.at[i, "url"]:
+            continue
+        content = fetch_article_content(df.at[i, "url"])
+        if content:
+            df.at[i, "content"] = content
+
     return df
 
 
