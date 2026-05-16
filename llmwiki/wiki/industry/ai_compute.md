@@ -2,8 +2,8 @@
 node_id: ai_compute
 type: industry
 name: AI算力
-sources: ["54d31bac204b8765", "d4690eff41e64a00"]
-updated_at: 2026-05-16T10:41:59
+sources: []
+updated_at: 2026-05-16T11:38:19
 generator: rule
 confidence: 1.0
 ---
@@ -30,8 +30,4 @@ confidence: 1.0
 - **MSFT**
 - **NVDA**
 - **华为**
-
-## 证据来源 (2 条)
-- `[aggregated]` 粤港湾控股更名为“粤港湾智算” 聚焦AI算力新基建...
-- `[东方财富]` 粤港湾控股更名为“粤港湾智算” 聚焦AI算力新基建...
 

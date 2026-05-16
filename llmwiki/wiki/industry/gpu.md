@@ -3,7 +3,7 @@ node_id: gpu
 type: industry
 name: GPU
 sources: []
-updated_at: 2026-05-16T10:41:59
+updated_at: 2026-05-16T11:38:19
 generator: rule
 confidence: 1.0
 ---

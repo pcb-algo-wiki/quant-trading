@@ -3,7 +3,7 @@ node_id: NVDA
 type: company
 name: 英伟达
 sources: []
-updated_at: 2026-05-16T10:41:59
+updated_at: 2026-05-16T11:38:15
 generator: rule
 confidence: 1.0
 ---

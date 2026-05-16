@@ -3,7 +3,7 @@ node_id: GOOGL
 type: company
 name: 谷歌
 sources: []
-updated_at: 2026-05-16T10:41:59
+updated_at: 2026-05-16T11:38:15
 generator: rule
 confidence: 1.0
 ---
