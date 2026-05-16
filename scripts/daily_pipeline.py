@@ -46,6 +46,16 @@ def run_daily_pipeline() -> dict:
     if cfg.get("filings.enabled", False):
         from scripts.ingest_filings import run as ingest_filings_run
         result["filings"] = ingest_filings_run()
+    if cfg.get("policy.enabled", False):
+        from data.policy.fifteenth_five_year import fetch_policy_articles, ingest_policy_articles
+        from data_store.db import get_connection
+        keywords = cfg.get("policy.keywords", [])
+        with get_connection() as conn:
+            articles = fetch_policy_articles(keywords=keywords)
+            result["policy_ingest"] = ingest_policy_articles(conn, articles)
+    if cfg.get("sentiment.enabled", False):
+        from scripts.run_sentiment_replay import run as sentiment_run
+        result["sentiment"] = sentiment_run()
     result["summary"] = build_daily_summary(result)
     return result
 

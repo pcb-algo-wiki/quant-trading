@@ -143,3 +143,21 @@ def create_schema(conn: sqlite3.Connection) -> None:
     for stmt in SCHEMA_STATEMENTS:
         conn.execute(stmt)
     conn.commit()
+
+
+# Phase 3 — industry_events 列迁移（幂等：PRAGMA 检查后才执行 ALTER TABLE）
+MIGRATION_STATEMENTS = [
+    ("policy_score",     "ALTER TABLE industry_events ADD COLUMN policy_score REAL;"),
+    ("sentiment_score",  "ALTER TABLE industry_events ADD COLUMN sentiment_score REAL;"),
+    ("propagated_score", "ALTER TABLE industry_events ADD COLUMN propagated_score REAL;"),
+]
+
+
+def apply_migrations(conn: sqlite3.Connection) -> None:
+    """幂等追加新列——若列已存在则跳过（SQLite 重复 ADD COLUMN 会报 OperationalError）。"""
+    cursor = conn.execute("PRAGMA table_info(industry_events)")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    for col_name, stmt in MIGRATION_STATEMENTS:
+        if col_name not in existing_cols:
+            conn.execute(stmt)
+    conn.commit()

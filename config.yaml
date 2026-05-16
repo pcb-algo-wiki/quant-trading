@@ -188,6 +188,23 @@ filings:
     enabled: false                   # US 股票财报抓取开关
     tickers: []                      # 美股 ticker 列表
 
+# ---------- 情感分析与政策传导 (Phase 3) ----------
+sentiment:
+  enabled: false          # feature flag（默认关，手动开启后执行 run_sentiment_replay.py）
+  backend: snownlp        # snownlp | finbert（Phase 7 升级）
+  decay: 0.5              # BFS 衰减系数（每跳乘以该值）
+  max_hops: 2             # 最大传播跳数
+
+policy:
+  enabled: false          # 是否在 daily_pipeline 中抓取政策文本
+  keywords:
+    - 十五五
+    - 产业政策
+    - 新质生产力
+    - 专精特新
+    - 半导体
+    - 新能源
+
 # ---------- 资金流向 ----------
 fund_flow:
   # 东方财富资金流向接口
