@@ -267,6 +267,52 @@ def fetch_etf_news(sec_code: str) -> List[Dict]:
     return news_list
 
 
+# ============ 美股/港股新闻 (yfinance) ============
+
+US_TICKERS = ['NVDA', 'AMD', 'AVGO', 'MSFT', 'AMZN', 'META', 'GOOGL', 'INTC']
+HK_TICKERS = ['0700.HK', '9988.HK', '1810.HK', '3690.HK']
+
+
+def fetch_us_hk_news() -> list[dict]:
+    """用 yfinance 抓美股+港股新闻，每只股票10条，返回 title/content/time/symbol。"""
+    news_list: list[dict] = []
+    all_tickers = US_TICKERS + HK_TICKERS
+    for sym in all_tickers:
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(sym)
+            articles = ticker.news or []
+            for art in articles:
+                c = art.get('content', {}) or {}
+                title = c.get('title', '') or c.get('description', '') or ''
+                summary = c.get('summary', '') or ''
+                pub_date = c.get('pubDate', '') or c.get('displayTime', '') or ''
+                if not title:
+                    continue
+                text = f"{title} {summary}".strip()
+                # 统一时间格式
+                dt = None
+                try:
+                    if isinstance(pub_date, int):
+                        import time as _time
+                        dt = datetime.fromtimestamp(pub_date / 1000)
+                    elif pub_date:
+                        dt = pd.to_datetime(pub_date, errors='coerce')
+                except Exception:
+                    dt = None
+                news_list.append({
+                    "source": f"yfinance({sym})",
+                    "title": title,
+                    "content": text,
+                    "time": str(dt)[:19] if dt else datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "url": '',
+                    "symbol": sym,
+                })
+        except Exception as e:
+            print(f"yfinance {sym} 失败: {e}")
+    return news_list
+
+
 # ============ 综合新闻聚合 ============
 
 def get_realtime_news() -> pd.DataFrame:
@@ -299,6 +345,14 @@ def get_realtime_news() -> pd.DataFrame:
         print(f"个股新闻: {len(stock_news)}条")
     except Exception as e:
         print(f"个股新闻获取失败: {e}")
+
+    # 美股+港股新闻（yfinance）
+    try:
+        us_hk_news = fetch_us_hk_news()
+        all_news.extend(us_hk_news)
+        print(f"美港股新闻: {len(us_hk_news)}条")
+    except Exception as e:
+        print(f"美港股新闻获取失败: {e}")
 
     if not all_news:
         return pd.DataFrame()

@@ -1,17 +1,12 @@
 """
 knowledge.vector_store
 =====================
-轻量向量检索：TF-IDF + TruncatedSVD 代替 sentence-transformers。
-不依赖外部模型下载，sklearn 内置算法完全离线可用。
+语义向量检索：sentence-transformers (all-MiniLM-L6-v2) + FAISS 近似最近邻。
+降级路径：TF-IDF + TruncatedSVD（网络不可用时自动 fallback）。
 
-Phase 7 实装路线：
-1. TfidfVectorizer 提取文本特征（词袋 + n-gram）
-2. TruncatedSVD 降维到 128 维（潜在语义分析）
-3. 余弦相似度检索
-
-为什么不用 sentence-transformers：
-- 需要连接 huggingface.co 下载模型，当前网络不通
-- 后续网络恢复时，只需改一行 MODEL_NAME 切换到真实语义向量
+用法：
+    vs = SemanticVectorStore()        # sentence-transformers
+    vs = VectorStore()                # TF-IDF fallback
 """
 from __future__ import annotations
 
@@ -181,6 +176,143 @@ class VectorStore:
         # vectorizer 不能序列化，重新 fit（用现有文本重新构建）
         # 注意：每次 load 后需要先有 vectorizer 状态才能 search
         self._vectorizer = None  # search 时会报错，调用者需确保 build_index
+
+
+# ------------------------------------------------------------------
+# Sentence-Transformers 语义向量检索（主路径，纯 numpy 实现）
+# ------------------------------------------------------------------
+
+MODEL_NAME = "all-MiniLM-L6-v2"  # 384-dim, 22MB, Mac 本地可跑
+
+
+class SemanticVectorStore:
+    """
+    基于 sentence-transformers 的语义向量库 + 纯 numpy 最近邻检索。
+    自动 fallback 到 TF-IDF 向量库（当模型不可用时）。
+    """
+
+    def __init__(self, model_name: str = MODEL_NAME) -> None:
+        self.model_name = model_name
+        self._texts: dict[str, str] = {}
+        self._extras: dict[str, dict] = {}
+        self._vectors: Optional[np.ndarray] = None
+        self._model = None  # False = tried and failed, None = not tried, SentenceTransformer = loaded
+        self._use_st = False
+
+    def _load_model(self):
+        """懒加载模型，失败则 fallback"""
+        if self._model is not None:
+            return  # already tried
+        try:
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer(self.model_name)
+            self._use_st = True
+            print(f"[SemanticVectorStore] 模型加载成功: {self.model_name}")
+        except Exception as e:
+            self._model = False
+            self._use_st = False
+            print(f"[SemanticVectorStore] 模型加载失败 ({e})，使用 TF-IDF fallback")
+
+    def index(self, doc_id: str, text: str, **kwargs) -> None:
+        self._texts[doc_id] = text
+        if kwargs:
+            self._extras[doc_id] = kwargs
+
+    def build_index(self) -> None:
+        if len(self._texts) < 2:
+            return
+        self._load_model()
+        texts = [self._texts[did] for did in self._texts]
+
+        if self._use_st and self._model:
+            embeddings = self._model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
+            embeddings = embeddings.astype(np.float32)
+            # L2 normalize → 余弦相似度 = 点积
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            norms = np.where(norms == 0, 1, norms)
+            self._vectors = (embeddings / norms).astype(np.float32)
+        else:
+            # Fallback: TF-IDF + SVD
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.decomposition import TruncatedSVD
+            from sklearn.preprocessing import normalize
+
+            vec = TfidfVectorizer(max_features=10000, sublinear_tf=True)
+            tfidf = vec.fit_transform(texts)
+            n_comp = min(128, len(texts) - 1, tfidf.shape[1])
+            svd = TruncatedSVD(n_components=n_comp, random_state=42)
+            vectors = svd.fit_transform(tfidf).astype(np.float32)
+            # L2 normalize
+            norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+            norms = np.where(norms == 0, 1, norms)
+            self._vectors = (vectors / norms).astype(np.float32)
+
+        print(f"[SemanticVectorStore] 索引构建完成: {len(texts)} docs, use_st={self._use_st}, dim={self._vectors.shape[1]}")
+
+    def search(self, query: str, top_k: int = 10) -> list["VectorHit"]:
+        if self._vectors is None:
+            return []
+
+        self._load_model()
+        doc_ids = list(self._texts.keys())
+
+        if self._use_st and self._model:
+            q_vec = self._model.encode([query], convert_to_numpy=True).astype(np.float32)
+        else:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.decomposition import TruncatedSVD
+            vec = TfidfVectorizer(max_features=10000, sublinear_tf=True)
+            texts = list(self._texts.values())
+            tfidf = vec.fit_transform(texts)
+            n_comp = min(128, len(texts) - 1, tfidf.shape[1])
+            svd = TruncatedSVD(n_components=n_comp, random_state=42)
+            svd.fit(tfidf)
+            q_tfidf = vec.transform([query])
+            q_vec = svd.transform(q_tfidf).astype(np.float32)
+
+        # L2 normalize query
+        q_norm = np.linalg.norm(q_vec)
+        q_vec = (q_vec / (q_norm if q_norm > 0 else 1)).astype(np.float32)
+
+        # 余弦相似度 = 点积（都已归一化）
+        scores = np.dot(self._vectors, q_vec.T).flatten()
+        top_indices = np.argsort(scores)[::-1][:top_k]
+
+        hits = []
+        for idx in top_indices:
+            score = scores[idx]
+            if score <= 0:
+                break
+            did = doc_ids[idx]
+            hits.append(VectorHit(
+                doc_id=did,
+                score=float(score),
+                text=self._texts[did][:500],
+                source="semantic" if self._use_st else "tfidf",
+                extra=self._extras.get(did, {}),
+            ))
+        return hits
+
+    def save(self, path: str | Path) -> None:
+        path = Path(path)
+        np.save(path, self._vectors)
+        text_path = path.with_suffix(".texts.json")
+        with open(text_path, "w", encoding="utf-8") as f:
+            json.dump(self._texts, f, ensure_ascii=False)
+        extra_path = path.with_suffix(".extras.json")
+        with open(extra_path, "w", encoding="utf-8") as f:
+            json.dump(self._extras, f, ensure_ascii=False)
+        meta_path = path.with_suffix(".meta.json")
+        with open(meta_path, "w") as f:
+            json.dump({"model": self.model_name, "use_st": self._use_st}, f)
+
+    def load(self, path: str | Path) -> None:
+        path = Path(path)
+        self._vectors = np.load(path)
+        self._texts = json.loads(open(path.with_suffix(".texts.json")).read())
+        self._extras = json.loads(open(path.with_suffix(".extras.json")).read())
+        meta = json.loads(open(path.with_suffix(".meta.json")).read())
+        self._use_st = meta.get("use_st", False)
 
 
 # ------------------------------------------------------------------
