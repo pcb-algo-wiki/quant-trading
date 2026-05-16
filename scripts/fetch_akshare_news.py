@@ -83,14 +83,19 @@ def extract_capacity_from_text(text: str, company: str, title: str, published_at
             capacity_unit = unit
             break
 
-    # 提取产能利用率
+    # 提取产能利用率（必须紧邻产能相关词才算）
     utilization = None
-    util_matches = re.findall(r"(\d+)%", text)
-    for um in util_matches:
+    CAP_KEYWORDS = ["产能", "利用", "供应", "需求", "开工", "产出", "爬坡", "量产", "在建", "扩产", "投产"]
+    pct_pattern = re.findall(r"(\d+)%", text)
+    for um in pct_pattern:
         v = int(um)
         if 30 <= v <= 110:
-            utilization = v / 100
-            break
+            # 检查这个百分号是否在产能相关词附近（前后50字内）
+            pos = text.find(f"{um}%")
+            window = text[max(0, pos-80):min(len(text), pos+20)]
+            if any(kw in window for kw in CAP_KEYWORDS):
+                utilization = v / 100
+                break
 
     # 提取投资额
     invest_amount = None
@@ -225,24 +230,34 @@ def upsert_capacity(conn, cap: dict):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if existing:
-        # 更新
+        # 只更新有实际值的字段，0或空值不覆盖已有数据
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE capacity_data SET
-                capacity_current = COALESCE(?, capacity_current),
-                utilization = COALESCE(?, utilization),
-                production_date = COALESCE(?, production_date),
-                news_title = ?,
-                updated_at = ?
-            WHERE company = ? AND segment = ?
-        """, (
-            cap.get("capacity_value") or existing.get("capacity_current"),
-            cap.get("utilization") or existing.get("utilization"),
-            cap.get("production_date") or existing.get("production_date"),
-            cap.get("news_title", ""),
-            now,
-            cap["company"], cap["segment"],
-        ))
+        updates = []
+        params = []
+        if cap.get("capacity_value"):
+            updates.append("capacity_current = ?")
+            params.append(cap["capacity_value"])
+        if cap.get("capacity_unit"):
+            updates.append("capacity_unit = ?")
+            params.append(cap["capacity_unit"])
+        if cap.get("utilization") and cap["utilization"] > 0:
+            updates.append("utilization = ?")
+            params.append(cap["utilization"])
+        if cap.get("production_date"):
+            updates.append("production_date = ?")
+            params.append(cap["production_date"])
+        updates.extend([
+            "news_title = ?",
+            "updated_at = ?",
+        ])
+        params.extend([cap.get("news_title", ""), now])
+        params.extend([cap["company"], cap["segment"]])
+        if updates:
+            cur.execute(f"""
+                UPDATE capacity_data SET
+                    {', '.join(updates)}
+                WHERE company = ? AND segment = ?
+            """, params)
     else:
         cur = conn.cursor()
         cur.execute("""
@@ -256,9 +271,9 @@ def upsert_capacity(conn, cap: dict):
             cap.get("ticker", ""),
             cap.get("segment", ""),
             cap.get("segment", ""),
-            cap.get("capacity_value") or 0,
-            cap.get("capacity_unit", "万片/月"),
-            cap.get("utilization") or 0.80,
+            cap.get("capacity_value") or None,  # None instead of 0
+            cap.get("capacity_unit") or "万片/月",
+            cap.get("utilization") or None,
             0,
             cap.get("production_date"),
             cap.get("news_title", ""),
