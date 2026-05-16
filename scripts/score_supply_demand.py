@@ -91,6 +91,140 @@ CYCLE_HISTORY = {
 
 
 # ──────────────────────────────────────────────────────────
+# 周期位置分析（核心差异化分析）
+# ──────────────────────────────────────────────────────────
+
+def get_cycle_position(segment: str) -> dict:
+    """
+    分析某环节在供需周期中的位置
+    返回: {
+        "phase": 当前阶段,
+        "duration_quarters": 已持续季度数,
+        "typical_duration": 典型持续季度,
+        "position": "早期/中期/晚期/末期",
+        "inflection_risk": "低/中/高" (拐点风险),
+        "recommendation": 操作建议,
+        "cycle_stage_notes": 阶段备注,
+    }
+    """
+    # 从CYCLE_PHASES提取该环节所有阶段
+    phases = [p for p in CYCLE_PHASES if p.segment == segment]
+    if not phases:
+        return {"phase": "未知", "position": "未知", "inflection_risk": "未知"}
+
+    # 当前阶段：找 end_period=None 的，取时间最晚的
+    current = None
+    prev_phase = None
+    phases_sorted = sorted(phases, key=lambda p: (int(p.start_period.split("Q")[0]), int(p.start_period.split("Q")[1])))
+    # 从后往前找，找最新开始的阶段
+    for i in range(len(phases_sorted) - 1, -1, -1):
+        p = phases_sorted[i]
+        if p.end_period is None:
+            current = p
+            if i > 0:
+                prev_phase = phases_sorted[i - 1]
+            break
+
+    if current is None:
+        return {"phase": "未知", "position": "未知", "inflection_risk": "未知"}
+
+    # 典型阶段持续季度数（经验值）
+    phase_typical = {
+        "紧缺": (3, 6),   # (最短, 最长) 季度
+        "均衡": (2, 4),
+        "过剩": (3, 8),
+        "去化": (2, 5),
+    }
+    q_min, q_max = phase_typical.get(current.phase, (3, 6))
+
+    # 已持续季度数（从start_period推算）
+    # 粗略估算：假设从2024Q1开始计算（当前是2026年Q2）
+    # 更精确：从start_period到"现在"的季度差
+    import datetime
+    now = datetime.datetime.now()
+    current_year = now.year
+    current_q = (now.month - 1) // 3 + 1
+
+    def parse_yq(s):
+        try:
+            if "Q" in str(s):
+                y, q = str(s).split("Q")
+                return int(y), int(q)
+        except (ValueError, AttributeError):
+            pass
+        return current_year, current_q
+
+    sy, sq = parse_yq(current.start_period)
+    elapsed = (current_year - sy) * 4 + (current_q - sq)
+
+    # 周期位置判断
+    progress = elapsed / q_max if q_max > 0 else 0.5
+
+    if progress < 0.33:
+        position = "早期"
+        inflection_risk = "低"
+        rec = "持有/逢低加仓"
+    elif progress < 0.66:
+        position = "中期"
+        inflection_risk = "中"
+        rec = "持有，观察拐点信号"
+    elif progress < 0.9:
+        position = "晚期"
+        inflection_risk = "高"
+        rec = "密切监控，关注产能投放/需求拐点信号"
+    else:
+        position = "末期"
+        inflection_risk = "极高"
+        rec = "⚠️ 准备减仓，周期转向在即"
+
+    # 特殊处理：AI驱动+国产替代+地缘政治 → 周期可能延长
+    extended_cycle_segments = {
+        "半导体设备", "HBM/高带宽存储", "存储制造",
+        "减速器", "传感器", "机器人本体",
+        "航发整机", "军机/无人机", "商业航天",
+    }
+    if segment in extended_cycle_segments and current.phase == "紧缺":
+        # 这些环节周期可能延长
+        q_max_ext = int(q_max * 1.5)
+        progress_ext = elapsed / q_max_ext if q_max_ext > 0 else 0.5
+        if progress_ext < 0.33:
+            position = "早期(L)"
+        elif progress_ext < 0.66:
+            position = "中期(L)"
+        elif progress_ext < 0.9:
+            position = "晚期(L)"
+        else:
+            position = "末期(L)"
+        inflection_risk = {"低": "低", "中": "中", "高": "中", "极高": "高"}[inflection_risk]
+        rec = rec + " [延长周期]"
+
+    return {
+        "phase": current.phase,
+        "duration_quarters": elapsed,
+        "typical_duration": f"{q_min}-{q_max}季度",
+        "position": position,
+        "inflection_risk": inflection_risk,
+        "recommendation": rec,
+        "gap_ratio": current.gap_ratio,
+        "price_trend": current.price_trend,
+    }
+
+
+def print_cycle_position_report(segment: str):
+    """打印周期位置分析"""
+    info = get_cycle_position(segment)
+    gap = get_supply_demand_gap(segment, 0)
+
+    icon = {"早期": "🌅", "中期": "☀️", "晚期": "🌆", "末期": "🚨"}.get(info["position"], "❓")
+    risk_icon = {"低": "🟢", "中": "🟡", "高": "🟠", "极高": "🔴"}.get(info["inflection_risk"], "❓")
+
+    print(f"\n  ⏱️ 周期位置: {icon} {info['position']} | 已持续{info['duration_quarters']}季度 (典型{info['typical_duration']})")
+    print(f"  📉 拐点风险: {risk_icon} {info['inflection_risk']}级")
+    print(f"  📌 操作建议: {info['recommendation']}")
+    print(f"  📊 当前: {info['phase']} 缺口{info['gap_ratio']*100:+.0f}% 价格趋势:{info['price_trend']}")
+
+
+# ──────────────────────────────────────────────────────────
 # 信号评分
 # ──────────────────────────────────────────────────────────
 
@@ -441,6 +575,9 @@ def main():
         print(f"  当前缺口: {gap['gap_pct']:+.1f}% ({gap['status']})")
         print(f"  趋势: {gap_trend}")
         print(f"  新闻催化: {news_score:.1f}/10")
+
+        # 周期位置分析
+        print_cycle_position_report(args.segment)
 
         print(f"\n  各公司在当前位置:")
         signals = score_segment_stocks(args.segment)
