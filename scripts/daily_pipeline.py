@@ -124,6 +124,9 @@ def run_daily_pipeline(notify: bool = False, dry_run: bool = False) -> dict:
         def _sync_wiki():
             return sync(write=True)
         result["sync_llmwiki"] = _run_step("sync_llmwiki", _sync_wiki, timings, errors)
+        # 向量库构建（TF-IDF + SVD，离线运行）
+        from scripts.build_vector_store import run as build_vs_run
+        result["vector_store"] = _run_step("vector_store", build_vs_run, timings, errors)
 
     if cfg.get("filings.enabled", False):
         def _filings():
