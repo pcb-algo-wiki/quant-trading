@@ -37,3 +37,8 @@ pdfplumber>=0.10.0
 # Phase 3+ sentiment analysis + policy alignment
 snownlp>=0.12.3
 scikit-learn>=1.3.0
+
+# Phase 7+ vector retrieval & Chinese text processing
+jieba>=0.42.1
+chromadb>=1.5.9
+sentence-transformers>=2.7.0
