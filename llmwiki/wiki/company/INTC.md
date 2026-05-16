@@ -3,7 +3,7 @@ node_id: INTC
 type: company
 name: 英特尔
 sources: ["71aa4b286591ca9b", "c3377383959abffa", "8889696246a2e504", "14b1b8598810820b", "3da95300a93524a7", "02ba3994cbeb744f", "419f52c4caee6246", "708ecdafbb4edb84", "607973c3079cc829", "6cf5d7ecb24e043c", "dd2c9b7c6784fbc6", "4dfdc4a8e79c910e", "c7c70c76131f39eb", "48b1e2630cc39a27", "ee2884059281a8e5", "4a10ac0bf4eea811"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

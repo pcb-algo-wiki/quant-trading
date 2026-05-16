@@ -3,7 +3,7 @@ node_id: SK_Hynix
 type: company
 name: SK海力士
 sources: ["b8abdd4abcaabeb1", "4dfdc4a8e79c910e", "7b98292a5dfe9b52", "064a9ed4461d9c70", "6949092751fd8935", "35842a43d761aaaa"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

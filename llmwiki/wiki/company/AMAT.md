@@ -3,7 +3,7 @@ node_id: AMAT
 type: company
 name: 应用材料
 sources: ["9294b010f9af5b4d", "f6c6b57cb72f806a", "f539e25159137e49", "a03a727a19bb0daf", "725f357f6b637faf", "ebf9b198ea2db639", "4a10ac0bf4eea811", "8a86493b51f85bd5", "c8f1589793cddd90", "cb9ce9ca4a9eb5fd", "cb07e6c7a0540541", "993599fe35a9a457", "9e14bc6cca396610", "84cf2fbfecbdd16d", "2ddb86c4bd4de0ce", "e622fae2e51943d2"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

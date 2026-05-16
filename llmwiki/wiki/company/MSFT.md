@@ -3,7 +3,7 @@ node_id: MSFT
 type: company
 name: 微软
 sources: ["419f52c4caee6246", "8379308500f70f48", "054cb3489957455b", "1ce008d41b7fb6be", "d5ade3de23705b5f", "adf033207dd8f5b1", "8e5594520ebefdee", "f4f2fec1a48af760", "ce3d4be40eddbec2", "2b5a91e618679216", "efd49795fe537aeb", "3ffbf448a9acd7a6", "0352902848252fd3", "d7752e39d4c5b642", "a05b5d4e318775f4", "886ee3eb9ae690be"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

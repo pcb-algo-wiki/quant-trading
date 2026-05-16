@@ -3,7 +3,7 @@ node_id: ai_compute
 type: industry
 name: AI算力
 sources: ["10e695b79b7c2b74", "d210fc1b7b130249", "1ad3fca9b7cda7c2", "86f36655284bb9a7", "621254c165bc31f8", "9c1b8780ead2025c", "1058d4ef174c5618", "28b7f140ef347d74", "0d21a944e2936ee7", "eb247f535dcbfcdc", "76c3e0f40e001958", "fb9796de9a19c034", "520263ff3b39ea25", "759123aca98825c0", "6cf5d7ecb24e043c", "c7c70c76131f39eb"]
-updated_at: 2026-05-16T14:04:06
+updated_at: 2026-05-16T14:25:56
 generator: rule
 confidence: 1.0
 ---

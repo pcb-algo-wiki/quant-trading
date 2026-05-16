@@ -3,7 +3,7 @@ node_id: ASML
 type: company
 name: ASML
 sources: ["7ee6e63019359760", "d57374441f0ecdb9", "d1a602c6ba0dc3e8", "baf7af0147ed4d7f", "fe269759397f9366", "92c9bc5f6ed29f5a", "3245be7e92a4250c", "34cf34bcb84a7fdf", "67fd9f9336941642", "4888ace4415874bd", "725f357f6b637faf", "ebf9b198ea2db639", "cb9ce9ca4a9eb5fd", "b9c284fd3c5c3871", "dffa45d3265e9f28", "02edbe8ab8757c7e"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

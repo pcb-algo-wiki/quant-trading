@@ -3,7 +3,7 @@ node_id: eda_ip
 type: industry
 name: EDA/IP
 sources: ["102390492ecec21a", "4b5431ac63afe743", "342a7e18f1fb02a8", "be3b027734c10acf", "8e435f5519ec0480", "80fc72bbd7682789", "6adbbe222d9e0bcb", "a2aff005f3222b3a", "c8d0277333f597e5", "014b32aa6d29eca1", "a5e3fff3637d63bf", "3ae06aa6f1643d92", "b211249bfeae24f1", "3a19496e3ae2b07d", "346a25a518b505c4", "96f6d9ea5a8aa93b"]
-updated_at: 2026-05-16T14:04:06
+updated_at: 2026-05-16T14:25:56
 generator: rule
 confidence: 1.0
 ---

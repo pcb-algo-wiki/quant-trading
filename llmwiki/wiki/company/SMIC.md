@@ -3,7 +3,7 @@ node_id: SMIC
 type: company
 name: 中芯国际
 sources: ["8978a426ac6ae705", "b08d64c0dce2f49c", "6971a0d151d110a9", "7f82d557bd00bab2", "e84143a1a7b831d4", "d0129bcb4e25352a", "7d669642220b07ad", "34e9dc893e47d23f", "05db994d7b1e97e4", "d21ffbeae95651da", "1be0bf8c4d3ea2e0", "40185e99bc95a4e2", "d71ecb70d08ef496", "ee3d5b280fd018ca", "0d21a944e2936ee7", "a290aa90bfc3fa03"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

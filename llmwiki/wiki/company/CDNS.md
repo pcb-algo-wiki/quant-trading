@@ -3,7 +3,7 @@ node_id: CDNS
 type: company
 name: Cadence
 sources: ["a2aff005f3222b3a", "c91c86c06249965e", "96f6d9ea5a8aa93b", "e6ec9cc892cd9ccf"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

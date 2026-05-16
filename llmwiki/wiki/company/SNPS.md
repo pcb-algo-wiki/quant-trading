@@ -3,7 +3,7 @@ node_id: SNPS
 type: company
 name: 新思科技
 sources: ["be3b027734c10acf", "8e435f5519ec0480", "723d8ef64731116f", "80fc72bbd7682789", "6adbbe222d9e0bcb", "ce2bfe884755b8f1", "9ed9246d029e80d4", "d4b8c5e36220e6ed", "b84b79122987a35d", "3ae06aa6f1643d92", "b211249bfeae24f1", "fa91a9a51d73a844", "3a19496e3ae2b07d", "346a25a518b505c4", "72149d06cbed71c2", "c72d7adf996547fd"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

@@ -3,7 +3,7 @@ node_id: packaging
 type: industry
 name: 封装/PCB
 sources: ["8f683d1f8eb30e96", "fce74c9123c23cee", "e684ac290cfe6c09", "f680e732e9af7219", "2d7c346978061467", "d210fc1b7b130249", "1ad3fca9b7cda7c2", "86f36655284bb9a7", "621254c165bc31f8", "453633c5696016cf", "5200c983faf6b59d", "77045e1f9bdf510b", "6353675240e06d5e", "76c3e0f40e001958", "1c882d97621dc4e3", "b62147fccc236f3f"]
-updated_at: 2026-05-16T14:04:06
+updated_at: 2026-05-16T14:25:56
 generator: rule
 confidence: 1.0
 ---

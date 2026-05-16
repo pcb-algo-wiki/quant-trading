@@ -3,7 +3,7 @@ node_id: robotics
 type: industry
 name: 机器人/具身智能
 sources: []
-updated_at: 2026-05-16T14:04:06
+updated_at: 2026-05-16T14:25:56
 generator: rule
 confidence: 1.0
 ---

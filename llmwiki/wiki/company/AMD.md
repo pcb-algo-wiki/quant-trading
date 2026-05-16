@@ -3,7 +3,7 @@ node_id: AMD
 type: company
 name: 超威半导体
 sources: ["2535b03948fd2a82", "fb9796de9a19c034", "83126dcaaf8aac31", "520263ff3b39ea25", "55af5adb6901bf5b", "0024bbb6fdc8f423", "c3377383959abffa", "8889696246a2e504", "2fcc70b774e7f28f", "b8abdd4abcaabeb1", "14b1b8598810820b", "3da95300a93524a7", "8e489854165dcdb0", "a9de0ca0ae000bc3", "55fc82955b5fa837", "1ce008d41b7fb6be"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

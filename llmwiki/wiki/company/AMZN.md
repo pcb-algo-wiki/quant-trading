@@ -3,7 +3,7 @@ node_id: AMZN
 type: company
 name: 亚马逊
 sources: ["83126dcaaf8aac31", "b8abdd4abcaabeb1", "d5a587790961bffb", "810a694ab61acc2f", "c2fe89023b9721ad", "ee2884059281a8e5", "2b5a91e618679216", "71768ad371fabfb4", "064a9ed4461d9c70", "6a189252a01c1e88", "47535c66d562b3bd", "19e5045eb0797ccb", "6803057c430f098e", "89bdbea984577fc0", "f4320d8159dcc44e", "2d2c706644ac2032"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

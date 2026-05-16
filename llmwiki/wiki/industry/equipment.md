@@ -3,7 +3,7 @@ node_id: equipment
 type: industry
 name: 半导体设备
 sources: ["1150f7aa464ebf6a", "ec560c174b92c5f0", "132e17acd87d5ebb", "d0cf0ca545c40840", "a2c7dc3e5e768b0d", "7ee6e63019359760", "d57374441f0ecdb9", "67fd9f9336941642", "f539e25159137e49", "725f357f6b637faf", "ebf9b198ea2db639", "c8f1589793cddd90", "cb9ce9ca4a9eb5fd", "a43cc40a8597e543", "6a9fe89da7e1feaa", "bf98476cab393678"]
-updated_at: 2026-05-16T14:04:06
+updated_at: 2026-05-16T14:25:56
 generator: rule
 confidence: 1.0
 ---

@@ -3,7 +3,7 @@ node_id: LRCX
 type: company
 name: 科磊半导体
 sources: ["f6796596012755ec", "2b5a91e618679216", "100793f7948f97e6", "fcb0385daace040e", "cb9ce9ca4a9eb5fd", "7f4c3ce360cfa059", "89bdbea984577fc0", "376d6826115fb43c", "4ce8671f54f1d4c1", "482e8e4f19f3cafd"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

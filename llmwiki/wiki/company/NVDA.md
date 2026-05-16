@@ -3,7 +3,7 @@ node_id: NVDA
 type: company
 name: 英伟达
 sources: ["bf12d348efea5f0b", "07d4f35e783380ed", "76c3e0f40e001958", "fb9796de9a19c034", "43dcdc3affdcb3fd", "5bb28bad537f056d", "56d2f5312ed90f56", "b8f3664ba6cc55a2", "12e1c079b4b4d726", "4757c64067593fb5", "83126dcaaf8aac31", "759123aca98825c0", "a9de0ca0ae000bc3", "619a834d444e48ef", "55fc82955b5fa837", "419f52c4caee6246"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

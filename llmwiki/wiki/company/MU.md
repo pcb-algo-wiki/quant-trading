@@ -3,7 +3,7 @@ node_id: MU
 type: company
 name: 镁光科技
 sources: ["5bb28bad537f056d", "56d2f5312ed90f56", "619a834d444e48ef", "419f52c4caee6246", "0a0095f0300bbc3e", "016028e86aafd9ab", "f75a6a94333dfc6b", "117610a580f266b9", "e432e4d95f7726ca", "2f69f0d45856a8f3", "68915fd4edf89631", "9c577fbd23ab0087", "3ffbf448a9acd7a6", "369ea238588b1b57", "9a109ac3f3bbb9c2", "8070da9f539eca3b"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

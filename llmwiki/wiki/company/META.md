@@ -3,7 +3,7 @@ node_id: META
 type: company
 name: Meta
 sources: ["55fc82955b5fa837", "419f52c4caee6246", "d5ade3de23705b5f", "f4f2fec1a48af760", "334faca684dae995", "ccef4e5e45d35c31", "7ef3f06aa250e4aa", "ce3d4be40eddbec2", "2f307b7604714f91", "ee2884059281a8e5", "d6b661c16b26c2ee", "b1953ab806bd3dc2", "29e0ebaef7197ffa", "3ffbf448a9acd7a6", "886ee3eb9ae690be", "0ea8888376e03790"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---

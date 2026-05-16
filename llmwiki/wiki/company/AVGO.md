@@ -3,7 +3,7 @@ node_id: AVGO
 type: company
 name: 博通
 sources: ["fb9796de9a19c034", "83126dcaaf8aac31", "ccd519ffab9b4954", "df116694f3a52326", "759123aca98825c0", "a9de0ca0ae000bc3", "6ca89d2ee082fece", "619a834d444e48ef", "55fc82955b5fa837", "f75d26efc68a38e7", "b5393b9e4769ffe3", "71768ad371fabfb4", "668550901360e6ed", "e1adedd675eacd6b", "588efab29cfb044a", "05220b17e5de27fa"]
-updated_at: 2026-05-16T14:00:18
+updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
 ---
