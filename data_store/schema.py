@@ -136,6 +136,19 @@ SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_type ON knowledge_nodes(type);",
     "CREATE INDEX IF NOT EXISTS idx_knowledge_edges_dst ON knowledge_edges(dst, type);",
     "CREATE INDEX IF NOT EXISTS idx_knowledge_evidence_doc ON knowledge_evidence(doc_source, doc_hash);",
+    """
+    CREATE TABLE IF NOT EXISTS reconcile_reports (
+        report_id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        is_clean INTEGER NOT NULL DEFAULT 1,
+        unmatched_signals_json TEXT,
+        unmatched_trades_json TEXT,
+        position_drift_json TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_reconcile_date ON reconcile_reports(date);",
 ]
 
 

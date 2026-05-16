@@ -266,3 +266,15 @@ env:
   dev: false
   test: false
   prod: false
+
+# ---------- 数据提供者路由 (Phase 5) ----------
+providers:
+  # A股优先链：sina（新浪免费）→ akshare（免费）→ tushare（付费可选）
+  a_share_order: [sina, akshare, tushare]
+  # 美股优先链：polygon（REST免费档）→ yfinance（降级）
+  us_order: [polygon, yfinance]
+  tushare:
+    token: ""                  # 填入后自动激活 TushareProvider
+  polygon:
+    api_key: ""                # 填入后自动激活 PolygonProvider
+
