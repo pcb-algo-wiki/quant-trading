@@ -169,6 +169,25 @@ news:
   # 超时（秒）
   timeout: 10
 
+# ---------- 知识底座 (Phase 1: llmwiki + 轻量 GraphRAG) ----------
+knowledge:
+  graph:
+    enabled: false           # daily_pipeline 是否构建知识图谱（默认关，验收后再开）
+    neighbor_hops: 2         # HybridRetriever 图召回跳数
+  retrieval:
+    top_k: 10
+    rrf_k: 60               # Reciprocal Rank Fusion 平滑常数
+
+# ---------- 基本面摄取 (Phase 2: cninfo + edgar + 防幻觉) ----------
+filings:
+  enabled: false                     # daily_pipeline feature flag（默认关）
+  a_share_symbols: []                # 空 = ingest_filings.py 内置示例 5 只
+  years: 3                           # 抓取最近 N 年年报
+  confidence_threshold: 0.6          # 低于此置信度的记录不落库
+  edgar:
+    enabled: false                   # US 股票财报抓取开关
+    tickers: []                      # 美股 ticker 列表
+
 # ---------- 资金流向 ----------
 fund_flow:
   # 东方财富资金流向接口

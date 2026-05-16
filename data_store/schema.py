@@ -103,6 +103,39 @@ SCHEMA_STATEMENTS = [
         error TEXT
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS knowledge_nodes (
+        node_id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        attrs_json TEXT,
+        updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS knowledge_edges (
+        src TEXT NOT NULL,
+        dst TEXT NOT NULL,
+        type TEXT NOT NULL,
+        weight REAL NOT NULL DEFAULT 1.0,
+        evidence_json TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (src, dst, type)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS knowledge_evidence (
+        node_id TEXT NOT NULL,
+        doc_source TEXT NOT NULL,
+        doc_hash TEXT NOT NULL,
+        snippet TEXT,
+        ts TEXT NOT NULL,
+        PRIMARY KEY (node_id, doc_source, doc_hash)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_nodes_type ON knowledge_nodes(type);",
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_edges_dst ON knowledge_edges(dst, type);",
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_evidence_doc ON knowledge_evidence(doc_source, doc_hash);",
 ]
 
 

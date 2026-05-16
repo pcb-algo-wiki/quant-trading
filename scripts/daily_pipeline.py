@@ -30,6 +30,9 @@ def run_ml_backtest_run():
 
 
 def run_daily_pipeline() -> dict:
+    from utils.config import get_config
+
+    cfg = get_config()
     result = {
         "data": update_data_store_run(),
         "knowledge": update_knowledge_run(),
@@ -37,6 +40,12 @@ def run_daily_pipeline() -> dict:
         "ml_train": train_ml_run(),
         "ml_backtest": run_ml_backtest_run(),
     }
+    if cfg.get("knowledge.graph.enabled", False):
+        from scripts.build_knowledge_graph import run as build_kg_run
+        result["knowledge_graph"] = build_kg_run()
+    if cfg.get("filings.enabled", False):
+        from scripts.ingest_filings import run as ingest_filings_run
+        result["filings"] = ingest_filings_run()
     result["summary"] = build_daily_summary(result)
     return result
 

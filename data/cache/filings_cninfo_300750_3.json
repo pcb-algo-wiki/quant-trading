@@ -1,0 +1,29 @@
+[
+  {
+    "symbol": "300750",
+    "report_period": "2025",
+    "revenue": null,
+    "net_profit": null,
+    "gross_margin": null,
+    "rd_expense": null,
+    "source": "cninfo"
+  },
+  {
+    "symbol": "300750",
+    "report_period": "2024",
+    "revenue": null,
+    "net_profit": null,
+    "gross_margin": null,
+    "rd_expense": null,
+    "source": "cninfo"
+  },
+  {
+    "symbol": "300750",
+    "report_period": "2023",
+    "revenue": null,
+    "net_profit": null,
+    "gross_margin": null,
+    "rd_expense": null,
+    "source": "cninfo"
+  }
+]
