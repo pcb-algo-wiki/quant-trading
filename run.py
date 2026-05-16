@@ -454,6 +454,8 @@ def main():
     parser.add_argument("--train-ml", action="store_true", help="训练ML基线并评估")
     parser.add_argument("--ml-backtest", action="store_true", help="运行ML策略回测")
     parser.add_argument("--daily-pipeline", action="store_true", help="运行一站式每日流水线")
+    parser.add_argument("--notify", action="store_true", help="每日流水线完成后发送推送通知")
+    parser.add_argument("--dry-run", action="store_true", help="仅验证导入链路，不执行网络请求")
     parser.add_argument("--long-alpha", action="store_true", help="长线价值 Alpha 策略回测")
     parser.add_argument("--event-driven", action="store_true", help="事件驱动策略回测")
     parser.add_argument("--regime-portfolio", action="store_true", help="Regime 组合策略回测")
@@ -483,7 +485,10 @@ def main():
         print(run_ml_backtest_run(symbol=args.symbol, start=args.start, end=args.end))
     elif args.daily_pipeline:
         from scripts.daily_pipeline import run_daily_pipeline
-        print(run_daily_pipeline())
+        out = run_daily_pipeline(notify=args.notify, dry_run=args.dry_run)
+        print(out.get("summary", ""))
+        if out.get("step_errors"):
+            print(f"[WARN] 有失败步骤: {list(out['step_errors'].keys())}")
     elif args.wf:
         from scripts.walk_forward import main as wf_main
         wf_main()
