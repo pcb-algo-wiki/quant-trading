@@ -35,7 +35,7 @@ LEADERS: list[tuple[str, str, str]] = [
     ("META",       "Meta",             "ai_compute"),
     ("华为",       "华为",              "ai_compute"),
     ("百度",       "百度",              "ai_compute"),
-    ("工业富联",   "工业富联(Fii)",     "ai_compute"),
+    ("工业富联",   "工业富联",            "ai_compute"),
     ("浪潮信息",   "浪潮信息",          "ai_compute"),
     ("中科曙光",   "中科曙光",          "ai_compute"),
     # ── GPU ─────────────────────────────────────────────────────────────────
