@@ -24,6 +24,9 @@ data:
   # 数据更新：增量更新的最大历史天数
   incremental_update_days: 5
 
+  # 实时刷新间隔（分钟），由定时任务控制
+  realtime_interval_minutes: 5
+
 # ---------- ETF标的 ----------
 etfs:
   "510300":
@@ -184,13 +187,13 @@ filings:
 
 # ---------- 情感分析与政策传导 (Phase 3) ----------
 sentiment:
-  enabled: false          # feature flag（默认关，手动开启后执行 run_sentiment_replay.py）
+  enabled: true           # ✅ 开启情感分析传导
   backend: snownlp        # snownlp | finbert（Phase 7 升级后改为 finbert）
   decay: 0.5              # BFS 衰减系数（每跳乘以该值）
   max_hops: 2             # 最大传播跳数
 
 policy:
-  enabled: false          # 是否在 daily_pipeline 中抓取政策文本
+  enabled: true           # ✅ 开启政策文本抓取
   keywords:
     - 十五五
     - 产业政策
@@ -231,7 +234,7 @@ execution:
 notification:
   enabled: true
   # 微信推送（PushPlus）
-  pushplus_token: "${PUSHPLUS_TOKEN}"
+  pushplus_token: "${PUSHPLUS_TOKEN}"   # ✅ 已配置
   # 钉钉
   dingtalk_webhook: ""
   # 邮件
@@ -268,9 +271,9 @@ providers:
   # 美股优先链：polygon（REST免费档）→ yfinance（降级）
   us_order: [polygon, yfinance]
   tushare:
-    token: ""                  # 填入后自动激活 TushareProvider
+    token: ""                  # 暂不使用，AkShare+新浪免费覆盖
   polygon:
-    api_key: ""                # 填入后自动激活 PolygonProvider
+    api_key: "${POLYGON_API_KEY}"   # ✅ 已配置，自动激活美股实时数据
 
 # ---------- Phase 7 重型组件（默认关，按需开启）----------
 knowledge:

@@ -238,9 +238,13 @@ def test_upsert_event_scores(tmp_path):
 
 # ── 任务 6：daily_pipeline feature flag + 重放脚本 ────────────────────────────
 
-def test_daily_pipeline_sentiment_flag_off():
+def test_daily_pipeline_sentiment_flag_off(monkeypatch):
     """sentiment.enabled=False 时 daily_pipeline 不调用 run_sentiment_replay"""
-    from unittest.mock import patch
+    from unittest.mock import patch, MagicMock
+
+    # patch cfg.get 让 sentiment.enabled 返回 False，其余返回 False 也OK
+    def mock_cfg_get(key, default=None):
+        return False
 
     with patch("scripts.daily_pipeline.update_data_store_run", return_value={}), \
          patch("scripts.daily_pipeline.update_knowledge_run", return_value={}), \
@@ -248,6 +252,8 @@ def test_daily_pipeline_sentiment_flag_off():
          patch("scripts.daily_pipeline.train_ml_run", return_value={}), \
          patch("scripts.daily_pipeline.run_ml_backtest_run", return_value={}), \
          patch("research.report_builder.build_daily_summary", return_value="ok"):
+        import utils.config as uc
+        monkeypatch.setattr(uc.cfg, "get", mock_cfg_get)
         from scripts.daily_pipeline import run_daily_pipeline
         result = run_daily_pipeline()
     assert "sentiment" not in result

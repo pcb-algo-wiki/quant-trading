@@ -14,8 +14,14 @@
 """
 
 import argparse
+import io
 import sys
 from pathlib import Path
+
+# Windows 控制台 UTF-8 统一处理
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -485,10 +491,16 @@ def main():
         print(run_ml_backtest_run(symbol=args.symbol, start=args.start, end=args.end))
     elif args.daily_pipeline:
         from scripts.daily_pipeline import run_daily_pipeline
+        import sys, io
         out = run_daily_pipeline(notify=args.notify, dry_run=args.dry_run)
-        print(out.get("summary", ""))
+        summary = out.get("summary", "")
+        try:
+            print(summary)
+        except UnicodeEncodeError:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+            print(summary)
         if out.get("step_errors"):
-            print(f"[WARN] 有失败步骤: {list(out['step_errors'].keys())}")
+            print(f"[WARN] step_errors: {list(out['step_errors'].keys())}")
     elif args.wf:
         from scripts.walk_forward import main as wf_main
         wf_main()

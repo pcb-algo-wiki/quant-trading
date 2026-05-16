@@ -76,7 +76,8 @@ class TestTushareProvider:
 
 
 class TestPolygonProvider:
-    def test_is_available_false_when_no_key(self):
+    def test_is_available_false_when_no_key(self, monkeypatch):
+        monkeypatch.delenv("POLYGON_API_KEY", raising=False)
         from data.providers.polygon_provider import PolygonProvider
         p = PolygonProvider(api_key="")
         assert p.is_available() is False
