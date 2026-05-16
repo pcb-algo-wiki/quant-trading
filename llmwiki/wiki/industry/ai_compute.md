@@ -3,7 +3,7 @@ node_id: ai_compute
 type: industry
 name: AI算力
 sources: []
-updated_at: 2026-05-16T11:38:19
+updated_at: 2026-05-16T11:48:55
 generator: rule
 confidence: 1.0
 ---
@@ -14,6 +14,7 @@ confidence: 1.0
 - `ai_compute:upstream:chips` (权重 1.00)
 - `ai_compute:upstream:memory` (权重 1.00)
 - `ai_compute:upstream:power` (权重 1.00)
+- `ai_compute:upstream:network` (权重 1.00)
 - `ai_compute:midstream:servers` (权重 1.00)
 - `ai_compute:midstream:cloud` (权重 1.00)
 - `ai_compute:midstream:data_center` (权重 1.00)
@@ -21,7 +22,7 @@ confidence: 1.0
 - `ai_compute:downstream:enterprise_ai` (权重 1.00)
 - `ai_compute:downstream:edge_ai` (权重 1.00)
 
-## 龙头公司 (8 个)
+## 龙头公司 (12 个)
 - **AMD**
 - **AMZN**
 - **AVGO**
@@ -29,5 +30,9 @@ confidence: 1.0
 - **META**
 - **MSFT**
 - **NVDA**
+- **中科曙光**
 - **华为**
+- **工业富联**
+- **浪潮信息**
+- **百度**
 

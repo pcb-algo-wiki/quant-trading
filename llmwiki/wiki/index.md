@@ -1,13 +1,17 @@
 # Wiki Index
 
-> 自动生成于 2026-05-16T11:38:19。
-> 共 153 节点 / 109 边。
+> 自动生成于 2026-05-16T11:49:08。
+> 共 113 节点 / 180 边。
 
 ## 行业 (Industries)
-- [[industry/ai_compute|AI算力]] (9 细分 / 0 龙头)
-- [[industry/gpu|GPU]] (8 细分 / 0 龙头)
+- [[industry/ai_compute|AI算力]] (10 细分 / 0 龙头)
+- [[industry/eda_ip|EDA/IP]] (2 细分 / 0 龙头)
+- [[industry/equipment|半导体设备]] (4 细分 / 0 龙头)
+- [[industry/gpu|GPU]] (9 细分 / 0 龙头)
+- [[industry/memory|存储/HBM]] (6 细分 / 0 龙头)
 - [[industry/optical_comms|光通信]] (6 细分 / 0 龙头)
-- [[industry/semiconductor|半导体]] (8 细分 / 0 龙头)
+- [[industry/packaging|封装/PCB]] (4 细分 / 0 龙头)
+- [[industry/semiconductor|半导体]] (9 细分 / 0 龙头)
 
 ## 产业链节点 (Segments)
 - [[industry/ai_compute|ai_compute:downstream:edge_ai]] (edge_ai)
@@ -18,55 +22,97 @@
 - [[industry/ai_compute|ai_compute:midstream:servers]] (servers)
 - [[industry/ai_compute|ai_compute:upstream:chips]] (chips)
 - [[industry/ai_compute|ai_compute:upstream:memory]] (memory)
+- [[industry/ai_compute|ai_compute:upstream:network]] (network)
 - [[industry/ai_compute|ai_compute:upstream:power]] (power)
-- [[industry/gpu|gpu:downstream:ai_terminals]] (ai_terminals)
+- [[industry/eda_ip|eda_ip:midstream:EDA_tools]] (EDA_tools)
+- [[industry/eda_ip|eda_ip:upstream:IP_cores]] (IP_cores)
+- [[industry/equipment|equipment:midstream:packaging_equip]] (packaging_equip)
+- [[industry/equipment|equipment:midstream:test_equip]] (test_equip)
+- [[industry/equipment|equipment:midstream:wafer_equip]] (wafer_equip)
+- [[industry/equipment|equipment:upstream:components]] (components)
+- [[industry/gpu|gpu:downstream:edge_ai]] (edge_ai)
 - [[industry/gpu|gpu:downstream:inference]] (inference)
 - [[industry/gpu|gpu:downstream:training]] (training)
 - [[industry/gpu|gpu:midstream:advanced_packaging]] (advanced_packaging)
 - [[industry/gpu|gpu:midstream:gpu_design]] (gpu_design)
-- [[industry/gpu|gpu:upstream:chips]] (chips)
 - [[industry/gpu|gpu:upstream:eda_ip]] (eda_ip)
+- [[industry/gpu|gpu:upstream:hbm_memory]] (hbm_memory)
 - [[industry/gpu|gpu:upstream:materials]] (materials)
 - [[industry/gpu|gpu:upstream:wafer_fab]] (wafer_fab)
+- [[industry/memory|memory:downstream:consumer_memory]] (consumer_memory)
+- [[industry/memory|memory:downstream:server_memory]] (server_memory)
+- [[industry/memory|memory:midstream:chip_fab]] (chip_fab)
+- [[industry/memory|memory:midstream:hbm_packaging]] (hbm_packaging)
+- [[industry/memory|memory:upstream:equipment]] (equipment)
+- [[industry/memory|memory:upstream:materials]] (materials)
 - [[industry/optical_comms|optical_comms:downstream:data_center_network]] (data_center_network)
 - [[industry/optical_comms|optical_comms:downstream:telecom_network]] (telecom_network)
 - [[industry/optical_comms|optical_comms:midstream:optical_devices]] (optical_devices)
 - [[industry/optical_comms|optical_comms:midstream:optical_modules]] (optical_modules)
 - [[industry/optical_comms|optical_comms:upstream:optical_chips]] (optical_chips)
 - [[industry/optical_comms|optical_comms:upstream:optical_materials]] (optical_materials)
+- [[industry/packaging|packaging:midstream:PCB]] (PCB)
+- [[industry/packaging|packaging:midstream:advanced_pkging]] (advanced_pkging)
+- [[industry/packaging|packaging:upstream:materials]] (materials)
+- [[industry/packaging|packaging:upstream:substrate]] (substrate)
 - [[industry/semiconductor|semiconductor:downstream:automotive]] (automotive)
 - [[industry/semiconductor|semiconductor:downstream:consumer_electronics]] (consumer_electronics)
 - [[industry/semiconductor|semiconductor:downstream:industrial]] (industrial)
 - [[industry/semiconductor|semiconductor:midstream:foundry]] (foundry)
 - [[industry/semiconductor|semiconductor:midstream:ic_design]] (ic_design)
 - [[industry/semiconductor|semiconductor:midstream:packaging_test]] (packaging_test)
+- [[industry/semiconductor|semiconductor:upstream:EDA]] (EDA)
 - [[industry/semiconductor|semiconductor:upstream:equipment]] (equipment)
 - [[industry/semiconductor|semiconductor:upstream:materials]] (materials)
 
 ## 公司 (Companies)
 - [[company/688981|中芯国际(A)]]
+- [[company/ACM|ACM Research]]
+- [[company/AMAT|应用材料]]
 - [[company/AMD|超威半导体]]
 - [[company/AMZN|亚马逊]]
+- [[company/ASML|ASML]]
 - [[company/AVGO|博通]]
+- [[company/CDNS|Cadence]]
 - [[company/GOOGL|谷歌]]
 - [[company/INTC|英特尔]]
+- [[company/LRCX|科磊半导体]]
 - [[company/META|Meta]]
 - [[company/MSFT|微软]]
+- [[company/MU|镁光科技]]
 - [[company/NVDA|英伟达]]
+- [[company/SK_Hynix|SK海力士]]
 - [[company/SMIC|中芯国际]]
+- [[company/SNPS|新思科技]]
 - [[company/三安光电|三安光电]]
 - [[company/中微公司|中微公司]]
+- [[company/中科曙光|中科曙光]]
+- [[company/中科飞测|中科飞测]]
 - [[company/中际旭创|中际旭创]]
 - [[company/光迅科技|光迅科技]]
 - [[company/北方华创|北方华创]]
 - [[company/华为|华为]]
+- [[company/华大九天|华大九天]]
 - [[company/华虹半导体|华虹半导体]]
 - [[company/卓胜微|卓胜微]]
+- [[company/南亚新材|南亚新材]]
 - [[company/博创科技|博创科技]]
+- [[company/天孚通信|天孚通信]]
+- [[company/天岳先进|天岳先进]]
 - [[company/天邑股份|天邑股份]]
+- [[company/工业富联|工业富联(Fii)]]
+- [[company/拓荆科技|拓荆科技]]
 - [[company/新易盛|新易盛]]
+- [[company/有研硅|有研硅]]
+- [[company/沪硅产业|沪硅产业]]
+- [[company/浪潮信息|浪潮信息]]
+- [[company/深南电路|深南电路]]
+- [[company/生益科技|生益科技]]
+- [[company/百度|百度]]
 - [[company/通富微电|通富微电]]
+- [[company/长江存储|长江存储]]
 - [[company/长电科技|长电科技]]
+- [[company/长鑫存储|长鑫存储]]
 - [[company/韦尔股份|韦尔股份]]
 
 ## 政策 (Policies)

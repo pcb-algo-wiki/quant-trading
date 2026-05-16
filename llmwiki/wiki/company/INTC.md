@@ -3,7 +3,7 @@ node_id: INTC
 type: company
 name: 英特尔
 sources: []
-updated_at: 2026-05-16T11:38:15
+updated_at: 2026-05-16T11:48:55
 generator: rule
 confidence: 1.0
 ---

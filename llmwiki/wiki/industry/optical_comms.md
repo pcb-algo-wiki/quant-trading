@@ -3,7 +3,7 @@ node_id: optical_comms
 type: industry
 name: 光通信
 sources: []
-updated_at: 2026-05-16T11:38:19
+updated_at: 2026-05-16T11:48:55
 generator: rule
 confidence: 1.0
 ---
@@ -18,11 +18,12 @@ confidence: 1.0
 - `optical_comms:downstream:data_center_network` (权重 1.00)
 - `optical_comms:downstream:telecom_network` (权重 1.00)
 
-## 龙头公司 (6 个)
+## 龙头公司 (7 个)
 - **中际旭创**
 - **光迅科技**
 - **华为**
 - **博创科技**
+- **天孚通信**
 - **天邑股份**
 - **新易盛**
 
