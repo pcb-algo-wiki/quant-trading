@@ -2,8 +2,8 @@
 node_id: AMZN
 type: company
 name: 亚马逊
-sources: ["83126dcaaf8aac31", "b8abdd4abcaabeb1", "d5a587790961bffb", "810a694ab61acc2f", "c2fe89023b9721ad", "ee2884059281a8e5", "2b5a91e618679216"]
-updated_at: 2026-05-16T11:48:55
+sources: ["83126dcaaf8aac31", "b8abdd4abcaabeb1", "d5a587790961bffb", "810a694ab61acc2f", "c2fe89023b9721ad", "ee2884059281a8e5", "2b5a91e618679216", "71768ad371fabfb4", "064a9ed4461d9c70", "6a189252a01c1e88", "47535c66d562b3bd", "19e5045eb0797ccb", "6803057c430f098e", "89bdbea984577fc0", "f4320d8159dcc44e", "2d2c706644ac2032"]
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - ai_compute
 
-## 证据来源 (7 条)
+## 证据来源 (17 条)
 - `[个股(NVDA)]` 营收放缓影响算力扩张？OpenAI发文称算力建设已超最初目标 美股4月28日，英伟达（NVDA.O）跌1.59%，AMD（AMD.O）跌3.41%，博通（AVG...
 - `[个股(AMD)]` 玻璃基板加速量产信号？SK海力士兄弟公司拟加码旗下工厂 AMD、AWS均为潜在客户 韩国经济日报等媒体补充称，Absolix生产的样品正在接受包括AMD和亚马逊...
 - `[个股(AMZN)]` 美股最新评级 | 招商证券维持亚马逊“强烈推荐”评级 招商证券维持亚马逊（AMZN.O）强烈推荐评级： 2026Q1营收与利润均超预期，AWS加速增长至376亿...

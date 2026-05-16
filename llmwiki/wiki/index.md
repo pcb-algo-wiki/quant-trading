@@ -1,16 +1,19 @@
 # Wiki Index
 
-> 自动生成于 2026-05-16T12:08:49。
-> 共 760 节点 / 894 边。
+> 自动生成于 2026-05-16T14:04:06。
+> 共 1417 节点 / 1852 边。
 
 ## 行业 (Industries)
 - [[industry/ai_compute|AI算力]] (10 细分 / 0 龙头)
+- [[industry/commercial_space|商业航天]] (9 细分 / 0 龙头)
 - [[industry/eda_ip|EDA/IP]] (2 细分 / 0 龙头)
 - [[industry/equipment|半导体设备]] (4 细分 / 0 龙头)
 - [[industry/gpu|GPU]] (9 细分 / 0 龙头)
 - [[industry/memory|存储/HBM]] (6 细分 / 0 龙头)
 - [[industry/optical_comms|光通信]] (6 细分 / 0 龙头)
 - [[industry/packaging|封装/PCB]] (4 细分 / 0 龙头)
+- [[industry/physical_ai|物理AI]] (9 细分 / 0 龙头)
+- [[industry/robotics|机器人/具身智能]] (9 细分 / 0 龙头)
 - [[industry/semiconductor|半导体]] (9 细分 / 0 龙头)
 
 ## 产业链节点 (Segments)
@@ -24,6 +27,15 @@
 - [[industry/ai_compute|ai_compute:upstream:memory]] (memory)
 - [[industry/ai_compute|ai_compute:upstream:network]] (network)
 - [[industry/ai_compute|ai_compute:upstream:power]] (power)
+- [[industry/commercial_space|commercial_space:downstream:navigation]] (navigation)
+- [[industry/commercial_space|commercial_space:downstream:remote_sensing]] (remote_sensing)
+- [[industry/commercial_space|commercial_space:downstream:satellite_internet]] (satellite_internet)
+- [[industry/commercial_space|commercial_space:midstream:constellation_ops]] (constellation_ops)
+- [[industry/commercial_space|commercial_space:midstream:launch_services]] (launch_services)
+- [[industry/commercial_space|commercial_space:midstream:satellite_manufacturing]] (satellite_manufacturing)
+- [[industry/commercial_space|commercial_space:upstream:launch_site]] (launch_site)
+- [[industry/commercial_space|commercial_space:upstream:rocket_parts]] (rocket_parts)
+- [[industry/commercial_space|commercial_space:upstream:satellite_platform]] (satellite_platform)
 - [[industry/eda_ip|eda_ip:midstream:EDA_tools]] (EDA_tools)
 - [[industry/eda_ip|eda_ip:upstream:IP_cores]] (IP_cores)
 - [[industry/equipment|equipment:midstream:packaging_equip]] (packaging_equip)
@@ -55,6 +67,24 @@
 - [[industry/packaging|packaging:midstream:advanced_pkging]] (advanced_pkging)
 - [[industry/packaging|packaging:upstream:materials]] (materials)
 - [[industry/packaging|packaging:upstream:substrate]] (substrate)
+- [[industry/physical_ai|physical_ai:downstream:autonomous_driving]] (autonomous_driving)
+- [[industry/physical_ai|physical_ai:downstream:embodied_ai]] (embodied_ai)
+- [[industry/physical_ai|physical_ai:downstream:robotics_control]] (robotics_control)
+- [[industry/physical_ai|physical_ai:midstream:digital_twin]] (digital_twin)
+- [[industry/physical_ai|physical_ai:midstream:reinforcement_learning]] (reinforcement_learning)
+- [[industry/physical_ai|physical_ai:midstream:world_models]] (world_models)
+- [[industry/physical_ai|physical_ai:upstream:physics_models]] (physics_models)
+- [[industry/physical_ai|physical_ai:upstream:sensor_fusion]] (sensor_fusion)
+- [[industry/physical_ai|physical_ai:upstream:simulation_compute]] (simulation_compute)
+- [[industry/robotics|robotics:downstream:humanoid_robot]] (humanoid_robot)
+- [[industry/robotics|robotics:downstream:industrial_robot]] (industrial_robot)
+- [[industry/robotics|robotics:downstream:service_robot]] (service_robot)
+- [[industry/robotics|robotics:midstream:AI_chips]] (AI_chips)
+- [[industry/robotics|robotics:midstream:robotics_integrators]] (robotics_integrators)
+- [[industry/robotics|robotics:midstream:servo_control]] (servo_control)
+- [[industry/robotics|robotics:upstream:actuators]] (actuators)
+- [[industry/robotics|robotics:upstream:processors]] (processors)
+- [[industry/robotics|robotics:upstream:sensors]] (sensors)
 - [[industry/semiconductor|semiconductor:downstream:automotive]] (automotive)
 - [[industry/semiconductor|semiconductor:downstream:consumer_electronics]] (consumer_electronics)
 - [[industry/semiconductor|semiconductor:downstream:industrial]] (industrial)
@@ -66,7 +96,11 @@
 - [[industry/semiconductor|semiconductor:upstream:materials]] (materials)
 
 ## 公司 (Companies)
+- [[company/0700.HK|腾讯]]
+- [[company/1810.HK|小米]]
+- [[company/3690.HK|美团]]
 - [[company/688981|中芯国际(A)]]
+- [[company/9988.HK|阿里巴巴]]
 - [[company/ACM|ACM Research]]
 - [[company/AMAT|应用材料]]
 - [[company/AMD|超威半导体]]
@@ -85,10 +119,15 @@
 - [[company/SMIC|中芯国际]]
 - [[company/SNPS|新思科技]]
 - [[company/三安光电|三安光电]]
+- [[company/上海沪工|上海沪工]]
+- [[company/中复神鹰|中复神鹰]]
 - [[company/中微公司|中微公司]]
+- [[company/中控技术|中控技术]]
+- [[company/中科创达|中科创达]]
 - [[company/中科曙光|中科曙光]]
 - [[company/中科飞测|中科飞测]]
 - [[company/中际旭创|中际旭创]]
+- [[company/光威复材|光威复材]]
 - [[company/光迅科技|光迅科技]]
 - [[company/北方华创|北方华创]]
 - [[company/华为|华为]]
@@ -97,19 +136,31 @@
 - [[company/卓胜微|卓胜微]]
 - [[company/南亚新材|南亚新材]]
 - [[company/博创科技|博创科技]]
+- [[company/双环传动|双环传动]]
 - [[company/天孚通信|天孚通信]]
 - [[company/天岳先进|天岳先进]]
 - [[company/天邑股份|天邑股份]]
-- [[company/工业富联|工业富联(Fii)]]
+- [[company/寒武纪|寒武纪]]
+- [[company/工业富联|工业富联]]
 - [[company/拓荆科技|拓荆科技]]
 - [[company/新易盛|新易盛]]
+- [[company/星宸科技|星宸科技]]
 - [[company/有研硅|有研硅]]
+- [[company/机器人|机器人]]
+- [[company/汇川技术|汇川技术]]
 - [[company/沪硅产业|沪硅产业]]
 - [[company/浪潮信息|浪潮信息]]
+- [[company/海康威视|海康威视]]
 - [[company/深南电路|深南电路]]
 - [[company/生益科技|生益科技]]
 - [[company/百度|百度]]
+- [[company/石头科技|石头科技]]
+- [[company/禾川科技|禾川科技]]
+- [[company/科大讯飞|科大讯飞]]
+- [[company/科沃斯|科沃斯]]
+- [[company/迈信林|迈信林]]
 - [[company/通富微电|通富微电]]
+- [[company/长光卫星|长光卫星]]
 - [[company/长江存储|长江存储]]
 - [[company/长电科技|长电科技]]
 - [[company/长鑫存储|长鑫存储]]
@@ -117,9 +168,13 @@
 
 ## 政策 (Policies)
 - [[policy/专精特新|专精特新企业政策]]
+- [[policy/低空经济政策|低空空域改革+商业航天联动]]
+- [[policy/具身智能政策|人形机器人产业发展规划]]
 - [[policy/十五五规划_ai|十五五 AI 新质生产力]]
 - [[policy/半导体大基金|国家半导体产业大基金]]
 - [[policy/双碳政策|碳达峰碳中和政策]]
+- [[policy/商业航天政策|国家商业航天发展规划]]
 - [[policy/实体清单_2023|实体清单扩展 (2023)]]
+- [[policy/智能网联汽车政策|智能网联汽车准入与上路通行试点]]
 - [[policy/算力基础设施政策|全国算力基础设施发展规划]]
 - [[policy/芯片出口管制_2020|美国芯片出口管制 (2020)]]

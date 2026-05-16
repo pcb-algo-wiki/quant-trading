@@ -1,0 +1,28 @@
+[
+  {
+    "date": "2026-05-14",
+    "signal_type": "capital",
+    "trend": "人形机器人",
+    "title": "摩尔线程（无锡）工业具身智能创新中心启动",
+    "description": "关键词: 具身智能, 强度: 0.6",
+    "impacted_nodes": [
+      "减速器",
+      "伺服电机"
+    ],
+    "policy_strength": 0.6,
+    "market_response": "待回测"
+  },
+  {
+    "date": "2026-05-14",
+    "signal_type": "capital",
+    "trend": "人形机器人",
+    "title": "摩尔线程（无锡）工业具身智能创新中心启动",
+    "description": "关键词: 具身智能, 强度: 0.6",
+    "impacted_nodes": [
+      "减速器",
+      "伺服电机"
+    ],
+    "policy_strength": 0.6,
+    "market_response": "待回测"
+  }
+]

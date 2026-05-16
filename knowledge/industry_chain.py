@@ -90,6 +90,26 @@ LEADERS: list[tuple[str, str, str]] = [
     ("深南电路",    "深南电路",           "packaging"),
     ("生益科技",    "生益科技",           "packaging"),
     ("南亚新材",    "南亚新材",           "packaging"),
+    # ── 商业航天 ─────────────────────────────────────────────────────────────
+    ("长光卫星",    "长光卫星",           "commercial_space"),
+    ("上海沪工",    "上海沪工",           "commercial_space"),
+    ("迈信林",      "迈信林",             "commercial_space"),
+    ("光威复材",    "光威复材",           "commercial_space"),
+    ("中复神鹰",    "中复神鹰",           "commercial_space"),
+    ("星宸科技",    "星宸科技",           "commercial_space"),
+    # ── 机器人/具身智能 ───────────────────────────────────────────────────────
+    ("机器人",      "机器人",             "robotics"),
+    ("汇川技术",    "汇川技术",           "robotics"),
+    ("双环传动",    "双环传动",           "robotics"),
+    ("中控技术",    "中控技术",           "robotics"),
+    ("科沃斯",      "科沃斯",             "robotics"),
+    ("禾川科技",    "禾川科技",           "robotics"),
+    # ── 物理AI ────────────────────────────────────────────────────────────────
+    ("科大讯飞",    "科大讯飞",           "physical_ai"),
+    ("海康威视",    "海康威视",           "physical_ai"),
+    ("中科创达",    "中科创达",           "physical_ai"),
+    ("寒武纪",      "寒武纪",             "physical_ai"),
+    ("石头科技",    "石头科技",           "physical_ai"),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -208,6 +228,54 @@ SUPPLIER_OF: list[tuple[str, str, float]] = [
     ("ai_compute:upstream:power",            "semiconductor:upstream:equipment",       0.5),
     # GPU 设计用 EDA（跨行业）
     ("gpu:upstream:eda_ip",                  "semiconductor:midstream:ic_design",     0.7),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 商业航天内部
+    # ══════════════════════════════════════════════════════════════════════════
+    ("commercial_space:upstream:rocket_parts",    "commercial_space:midstream:launch_services",   0.9),
+    ("commercial_space:upstream:satellite_platform","commercial_space:midstream:satellite_manufacturing", 0.9),
+    ("commercial_space:upstream:launch_site",     "commercial_space:midstream:launch_services",   0.7),
+    ("commercial_space:midstream:satellite_manufacturing","commercial_space:downstream:satellite_internet", 1.0),
+    ("commercial_space:midstream:satellite_manufacturing","commercial_space:downstream:remote_sensing", 0.9),
+    ("commercial_space:midstream:launch_services","commercial_space:downstream:satellite_internet", 0.8),
+    # 商业航天 → AI算力（卫星互联网需要数据中心）
+    ("commercial_space:downstream:satellite_internet","ai_compute:midstream:data_center",          0.7),
+    # 碳纤维材料 → 火箭/卫星
+    ("packaging:upstream:materials",               "commercial_space:upstream:rocket_parts",     0.6),
+    # 半导体 → 卫星制造
+    ("semiconductor:midstream:ic_design",        "commercial_space:midstream:satellite_manufacturing", 0.7),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 机器人/具身智能内部
+    # ══════════════════════════════════════════════════════════════════════════
+    ("robotics:upstream:actuators",            "robotics:midstream:robotics_integrators",     0.9),
+    ("robotics:upstream:sensors",              "robotics:midstream:robotics_integrators",     0.9),
+    ("robotics:upstream:processors",           "robotics:midstream:AI_chips",                  0.9),
+    ("robotics:midstream:servo_control",      "robotics:midstream:robotics_integrators",      0.8),
+    ("robotics:midstream:AI_chips",            "robotics:midstream:robotics_integrators",     0.8),
+    # 机器人 → AI算力
+    ("robotics:midstream:AI_chips",           "ai_compute:upstream:chips",                   0.7),
+    # 半导体设备 → 机器人制造
+    ("equipment:midstream:wafer_equip",       "robotics:upstream:processors",                  0.5),
+    # 机器人 → 物理AI下游
+    ("robotics:downstream:humanoid_robot",    "physical_ai:downstream:embodied_ai",           1.0),
+    ("robotics:downstream:industrial_robot",  "physical_ai:downstream:robotics_control",      0.9),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 物理AI内部
+    # ══════════════════════════════════════════════════════════════════════════
+    ("physical_ai:upstream:simulation_compute","physical_ai:midstream:world_models",         0.9),
+    ("physical_ai:upstream:physics_models",   "physical_ai:midstream:world_models",          0.9),
+    ("physical_ai:upstream:sensor_fusion",    "physical_ai:midstream:digital_twin",           0.8),
+    ("physical_ai:midstream:world_models",    "physical_ai:midstream:reinforcement_learning",0.9),
+    ("physical_ai:midstream:reinforcement_learning","physical_ai:downstream:autonomous_driving", 0.9),
+    ("physical_ai:midstream:digital_twin",     "physical_ai:downstream:robotics_control",      0.8),
+    # 物理AI → AI算力
+    ("physical_ai:upstream:simulation_compute","ai_compute:midstream:servers",                0.7),
+    # GPU → 仿真计算
+    ("gpu:downstream:training",               "physical_ai:upstream:simulation_compute",    0.8),
+    # 光通信 → 传感器融合
+    ("optical_comms:midstream:optical_modules","physical_ai:upstream:sensor_fusion",        0.6),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +299,21 @@ POLICIES: list[tuple[str, str, str, float]] = [
     ("双碳政策",           "碳达峰碳中和政策",                 "optical_comms",      0.5),
     ("算力基础设施政策",   "全国算力基础设施发展规划",         "ai_compute",         1.0),
     ("算力基础设施政策",   "全国算力基础设施发展规划",         "optical_comms",      0.8),
+    # ── 商业航天政策 ───────────────────────────────────────────────────────────
+    ("商业航天政策",        "国家商业航天发展规划",              "commercial_space",    1.0),
+    ("商业航天政策",        "国家商业航天发展规划",              "robotics",           0.5),
+    ("低空经济政策",        "低空空域改革+商业航天联动",          "commercial_space",    0.8),
+    ("低空经济政策",        "低空空域改革+商业航天联动",          "robotics",           0.7),
+    # ── 机器人/具身智能政策 ──────────────────────────────────────────────────
+    ("具身智能政策",        "人形机器人产业发展规划",            "robotics",           1.0),
+    ("具身智能政策",        "人形机器人产业发展规划",            "physical_ai",        0.8),
+    ("专精特新",            "专精特新企业政策",                 "robotics",           0.7),
+    ("专精特新",            "专精特新企业政策",                 "physical_ai",        0.6),
+    # ── 物理AI政策 ────────────────────────────────────────────────────────────
+    ("智能网联汽车政策",    "智能网联汽车准入与上路通行试点",    "physical_ai",        0.9),
+    ("智能网联汽车政策",    "智能网联汽车准入与上路通行试点",    "robotics",           0.6),
+    ("十五五规划_ai",       "十五五 AI 新质生产力",             "robotics",           0.9),
+    ("十五五规划_ai",       "十五五 AI 新质生产力",             "physical_ai",        0.9),
 ]
 
 

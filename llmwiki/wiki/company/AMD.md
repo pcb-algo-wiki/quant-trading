@@ -3,7 +3,7 @@ node_id: AMD
 type: company
 name: 超威半导体
 sources: ["2535b03948fd2a82", "fb9796de9a19c034", "83126dcaaf8aac31", "520263ff3b39ea25", "55af5adb6901bf5b", "0024bbb6fdc8f423", "c3377383959abffa", "8889696246a2e504", "2fcc70b774e7f28f", "b8abdd4abcaabeb1", "14b1b8598810820b", "3da95300a93524a7", "8e489854165dcdb0", "a9de0ca0ae000bc3", "55fc82955b5fa837", "1ce008d41b7fb6be"]
-updated_at: 2026-05-16T11:48:55
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -16,7 +16,7 @@ confidence: 1.0
 - ai_compute
 - gpu
 
-## 证据来源 (17 条)
+## 证据来源 (40 条)
 - `[个股(BIDU)]` 美股最新评级 | 交银国际维持AMD买入评级 目标价275美元 以下为各家券商对美股的最新评级和目标价： 招商证券(香港)维持百度（BIDU.O）买入评级，目标...
 - `[个股(NVDA)]` “最大AI芯片”公司上市首日涨68%，美股AI热潮与分歧共存 英伟达（NVDA.O）涨4.39%，市值5.7万亿美元，创历史新高。英伟达股价已连涨7天，累计上涨...
 - `[个股(NVDA)]` 营收放缓影响算力扩张？OpenAI发文称算力建设已超最初目标 美股4月28日，英伟达（NVDA.O）跌1.59%，AMD（AMD.O）跌3.41%，博通（AVG...

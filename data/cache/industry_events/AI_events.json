@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2025-01-20",
+    "signal_type": "capital",
+    "title": "DeepSeek R1模型发布",
+    "description": "DeepSeek发布R1模型，国产AI算力受追捧",
+    "impacted_nodes": [
+      "AI芯片",
+      "算力"
+    ],
+    "policy_strength": 0.7,
+    "trend": "算力"
+  }
+]

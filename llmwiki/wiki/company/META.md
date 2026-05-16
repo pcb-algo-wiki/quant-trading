@@ -2,8 +2,8 @@
 node_id: META
 type: company
 name: Meta
-sources: ["55fc82955b5fa837", "419f52c4caee6246", "d5ade3de23705b5f", "f4f2fec1a48af760", "334faca684dae995", "ccef4e5e45d35c31", "7ef3f06aa250e4aa", "ce3d4be40eddbec2", "2f307b7604714f91", "ee2884059281a8e5", "d6b661c16b26c2ee", "b1953ab806bd3dc2"]
-updated_at: 2026-05-16T11:48:55
+sources: ["55fc82955b5fa837", "419f52c4caee6246", "d5ade3de23705b5f", "f4f2fec1a48af760", "334faca684dae995", "ccef4e5e45d35c31", "7ef3f06aa250e4aa", "ce3d4be40eddbec2", "2f307b7604714f91", "ee2884059281a8e5", "d6b661c16b26c2ee", "b1953ab806bd3dc2", "29e0ebaef7197ffa", "3ffbf448a9acd7a6", "886ee3eb9ae690be", "0ea8888376e03790"]
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - ai_compute
 
-## 证据来源 (12 条)
+## 证据来源 (27 条)
 - `[个股(AVGO)]` 博通再获Meta芯片大单，CEO陈福阳卸任Meta董事转为顾问 消息传出后，14日美股盘后，博通（Nasdaq：AVGO）股价拉升超3%，Meta（Nasdaq...
 - `[个股(INTC)]` 美股异动 | 明星科技股多数走弱 英特尔INTC.US)跌超3% 当地时间4月20日，美股早盘跌幅扩大，纳指一度跌超1%，明星科技股多数走弱，英特尔INTC.U...
 - `[个股(MSFT)]` 美股最新评级 | 中金公司维持Meta“跑赢行业”评级 目标价773美元 中金公司维持微软（MSFT.O）跑赢行业评级，目标价586美元： 微软2026财年Q3...

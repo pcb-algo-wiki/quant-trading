@@ -2,8 +2,8 @@
 node_id: LRCX
 type: company
 name: 科磊半导体
-sources: ["f6796596012755ec", "2b5a91e618679216", "100793f7948f97e6", "fcb0385daace040e", "cb9ce9ca4a9eb5fd"]
-updated_at: 2026-05-16T11:48:55
+sources: ["f6796596012755ec", "2b5a91e618679216", "100793f7948f97e6", "fcb0385daace040e", "cb9ce9ca4a9eb5fd", "7f4c3ce360cfa059", "89bdbea984577fc0", "376d6826115fb43c", "4ce8671f54f1d4c1", "482e8e4f19f3cafd"]
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - equipment
 
-## 证据来源 (5 条)
+## 证据来源 (10 条)
 - `[个股(LRCX)]` 美股最新评级丨华创证券维持德州仪器买入评级 华创证券维持拉姆研究（LRCX.O）买入评级： CY26Q1营收58.41亿美元，超预期且连续三季创新高，毛利率达指...
 - `[个股(LRCX)]` 搭上AI与黄金热潮！桥水Q4大举增持英伟达和黄金股 桥水第四季度13F报告 桥水的前十大标的分别是标普500指数ETF-SPDR(SPY.US)、标普500指数...
 - `[个股(LRCX)]` 桥水最新持仓曝光！AI仍是核心 增持黄金股 桥水2025年第四季度持仓变动 图片来源：whalewisdom.com 截至2025年末，桥水的前十大重仓标的分别...

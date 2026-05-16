@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2025-06-21",
+    "signal_type": "capital",
+    "title": "台积电宣布代工服务进入合规可控状态",
+    "description": "台积电代工服务调整，国产替代加速",
+    "impacted_nodes": [
+      "制造",
+      "封测"
+    ],
+    "policy_strength": 0.8,
+    "trend": "国产替代"
+  },
+  {
+    "date": "2025-01-06",
+    "signal_type": "policy",
+    "title": "大基金三期成立",
+    "description": "大基金三期成立，注册资本3440亿元支持半导体",
+    "impacted_nodes": [
+      "设备/工具",
+      "材料"
+    ],
+    "policy_strength": 0.9,
+    "trend": "国产替代"
+  }
+]

@@ -2,8 +2,8 @@
 node_id: GOOGL
 type: company
 name: 谷歌
-sources: ["fa72fe2f1951fd95", "66a0e8aa8c55674a", "12ad171153c5bac7", "f75d26efc68a38e7", "c7c70c76131f39eb", "48fb2b249af194d2", "d950ff7b1d0e65af", "6b995755c52ad6df", "7b98292a5dfe9b52", "000a79a3c64e5ec6", "f4f2fec1a48af760", "ce3d4be40eddbec2", "ee2884059281a8e5", "2b5a91e618679216"]
-updated_at: 2026-05-16T11:48:55
+sources: ["fa72fe2f1951fd95", "66a0e8aa8c55674a", "12ad171153c5bac7", "f75d26efc68a38e7", "c7c70c76131f39eb", "48fb2b249af194d2", "d950ff7b1d0e65af", "6b995755c52ad6df", "7b98292a5dfe9b52", "000a79a3c64e5ec6", "f4f2fec1a48af760", "ce3d4be40eddbec2", "ee2884059281a8e5", "2b5a91e618679216", "d20ed275d1a8a1a3", "3df160e5e3a5a5ea"]
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - ai_compute
 
-## 证据来源 (14 条)
+## 证据来源 (28 条)
 - `[新浪财经]` 阿克曼称出售谷歌股份并非做空该公司...
 - `[新浪财经]` 阿克曼称出售谷歌股份并非做空该公司...
 - `[新浪财经]` 阿克曼称出售谷歌股份并非做空该公司...

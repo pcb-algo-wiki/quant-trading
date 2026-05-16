@@ -2,8 +2,8 @@
 node_id: gpu
 type: industry
 name: GPU
-sources: ["eb247f535dcbfcdc", "76c3e0f40e001958", "55fc82955b5fa837", "d57374441f0ecdb9", "6adbbe222d9e0bcb"]
-updated_at: 2026-05-16T12:08:32
+sources: ["eb247f535dcbfcdc", "76c3e0f40e001958", "55fc82955b5fa837", "d57374441f0ecdb9", "6adbbe222d9e0bcb", "fabc9a96e2563117", "2b75bae347546a7f", "29e0ebaef7197ffa", "dffa45d3265e9f28", "346a25a518b505c4", "46dd9e457fd1671b"]
+updated_at: 2026-05-16T14:04:06
 generator: rule
 confidence: 1.0
 ---
@@ -27,7 +27,7 @@ confidence: 1.0
 - **INTC**
 - **NVDA**
 
-## 证据来源 (5 条)
+## 证据来源 (11 条)
 - `[个股(BIDU)]` 美股最新评级丨中信建投维持摩根大通买入评级 目标价378美元 广发证券维持百度（BIDU.O）买入评级，目标价174美元： 26Q1 Core收入同比微降，广告...
 - `[个股(NVDA)]` PCB概念集体走强，大族数控、建滔积层板、建滔集团创新高，硬件迭代带动产品增量需求 量方面，英伟达 NVDA.US)H200 GPU服务器大规模部署后，单台AI...
 - `[个股(AVGO)]` 博通再获Meta芯片大单，CEO陈福阳卸任Meta董事转为顾问 消息传出后，14日美股盘后，博通（Nasdaq：AVGO）股价拉升超3%，Meta（Nasdaq...

@@ -3,7 +3,7 @@ node_id: NVDA
 type: company
 name: 英伟达
 sources: ["bf12d348efea5f0b", "07d4f35e783380ed", "76c3e0f40e001958", "fb9796de9a19c034", "43dcdc3affdcb3fd", "5bb28bad537f056d", "56d2f5312ed90f56", "b8f3664ba6cc55a2", "12e1c079b4b4d726", "4757c64067593fb5", "83126dcaaf8aac31", "759123aca98825c0", "a9de0ca0ae000bc3", "619a834d444e48ef", "55fc82955b5fa837", "419f52c4caee6246"]
-updated_at: 2026-05-16T11:48:55
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -16,7 +16,7 @@ confidence: 1.0
 - ai_compute
 - gpu
 
-## 证据来源 (27 条)
+## 证据来源 (61 条)
 - `[个股(BIDU)]` 纳指、标普500再度刷新历史新高，英伟达市值收复5万亿美元关口 个股方面，百度集团（BIDU.US）大涨11.37%，金山云（KC.US）涨超8%，阿里巴巴（B...
 - `[个股(BIDU)]` 美股最新评级 | 开源证券维持英伟达买入评级 中信建投维持百度（BIDU.O）买入评级： 公司AI云与自动驾驶业务加速兑现，4Q25 AI原生业务收入占比升至4...
 - `[个股(NVDA)]` PCB概念集体走强，大族数控、建滔积层板、建滔集团创新高，硬件迭代带动产品增量需求 量方面，英伟达 NVDA.US)H200 GPU服务器大规模部署后，单台AI...

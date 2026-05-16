@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2025-02-12",
+    "signal_type": "policy",
+    "title": "广汽固态电池量产计划",
+    "description": "广汽宣布固态电池2026量产装车",
+    "impacted_nodes": [
+      "电池材料",
+      "电芯"
+    ],
+    "policy_strength": 0.7,
+    "trend": "量产"
+  }
+]

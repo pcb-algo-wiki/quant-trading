@@ -2,8 +2,8 @@
 node_id: ACM
 type: company
 name: ACM Research
-sources: ["efd49795fe537aeb", "e4813d3e3be8abff", "b78d1893b5a8b24b", "549fda5cfd700f33", "b6989bec8e98b4b2", "45318b59d14ea4fa", "d413017c02b037eb", "bde8f1816aa9f88b", "5149f7cd7e426ca9", "e36aefa4cee2db71"]
-updated_at: 2026-05-16T11:48:55
+sources: ["efd49795fe537aeb", "e4813d3e3be8abff", "b78d1893b5a8b24b", "549fda5cfd700f33", "b6989bec8e98b4b2", "45318b59d14ea4fa", "d413017c02b037eb", "bde8f1816aa9f88b", "5149f7cd7e426ca9", "e36aefa4cee2db71", "40ffe0662f40e772", "69e5f1847535b831", "a11214a133c12e16", "4ad51afe818ef97f", "863b91dc196f2a49", "7414b397096222d7"]
+updated_at: 2026-05-16T14:00:18
 generator: rule
 confidence: 1.0
 ---
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - equipment
 
-## 证据来源 (10 条)
+## 证据来源 (20 条)
 - `[个股(ACM)]` 智象未来梅涛：多模态生成AI尚处“中场” 架构创新或是破局关键 彼时，团队发布了全球首篇文生视频论文，获当年ACM Multimedia会议最佳创新论文奖。此后...
 - `[个股(ACM)]` 20分钟 20%涨停！股市“吹哨人”最新发声！涉及中国AI！ 另外，该行持续看好寒武纪、天数智芯、北方华创、中微公司、ACM Research、中芯国际以及欣兴...
 - `[个股(ACM)]` 20分钟，20%涨停！股市“吹哨人”，最新发声！涉及中国AI！ 另外，该行持续看好寒武纪、天数智芯、北方华创、中微公司、ACM Research、中芯国际以及欣...

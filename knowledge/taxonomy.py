@@ -50,6 +50,27 @@ DEFAULT_TAXONOMY = {
         "midstream": ["advanced_pkging", "PCB"],
         "downstream": [],
     },
+    # ── 商业航天 ─────────────────────────────────────────────────────────────
+    "commercial_space": {
+        "name": "商业航天",
+        "upstream": ["rocket_parts", "satellite_platform", "launch_site"],
+        "midstream": ["satellite_manufacturing", "constellation_ops", "launch_services"],
+        "downstream": ["satellite_internet", "remote_sensing", "navigation"],
+    },
+    # ── 机器人/具身智能 ───────────────────────────────────────────────────────
+    "robotics": {
+        "name": "机器人/具身智能",
+        "upstream": ["actuators", "sensors", "processors"],
+        "midstream": ["robotics_integrators", "servo_control", "AI_chips"],
+        "downstream": ["humanoid_robot", "industrial_robot", "service_robot"],
+    },
+    # ── 物理AI ────────────────────────────────────────────────────────────────
+    "physical_ai": {
+        "name": "物理AI",
+        "upstream": ["simulation_compute", "physics_models", "sensor_fusion"],
+        "midstream": ["world_models", "reinforcement_learning", "digital_twin"],
+        "downstream": ["autonomous_driving", "embodied_ai", "robotics_control"],
+    },
 }
 
 

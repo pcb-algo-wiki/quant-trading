@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2025-02-05",
+    "signal_type": "product",
+    "title": "比亚迪1月销量超30万辆",
+    "description": "比亚迪1月销量超30万辆，刷新历史记录",
+    "impacted_nodes": [
+      "电池",
+      "整车"
+    ],
+    "policy_strength": 0.6,
+    "trend": "销量"
+  }
+]
