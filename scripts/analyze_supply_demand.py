@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import argparse
+import sqlite3
 from datetime import date, timedelta
 from typing import Optional
 
@@ -20,8 +21,9 @@ from typing import Optional
 from knowledge.supply_chain import (
     CAPACITY_DATABASE, CYCLE_PHASES, CYCLE_PHASES,
     get_supply_demand_gap, get_stock_by_segment, get_segment_capacity,
-    SEMI_CHAIN_SEGMENTS, OPTICAL_CHAIN_SEGMENTS
+    SEMI_CHAIN_SEGMENTS, OPTICAL_CHAIN_SEGMENTS, CapacityEntry
 )
+from scripts.extract_capacity_from_news import load_from_db
 
 # 个股走势数据
 from data.stock_pool import ALL_STOCKS
@@ -175,12 +177,84 @@ def analyze_segment_stocks(segment: str):
 # 供需缺口未来预警
 # ──────────────────────────────────────────────────────────
 
+def get_all_capacity() -> list:
+    """合并: 静态供需库(基础数据) + 动态新闻提取(实时更新)"""
+    static = {f"{e.company}|{e.segment}": e for e in CAPACITY_DATABASE}
+    try:
+        conn = sqlite3.connect("data/cache/quant_data.db")
+        db_entries = load_from_db(conn)
+        conn.close()
+        for e in db_entries:
+            key = f"{e.company}|{e.segment}"
+            if key in static:
+                s = static[key]
+                if e.capacity_current > 0:
+                    s.capacity_current = e.capacity_current
+                if e.utilization and e.utilization > 0:
+                    s.utilization = e.utilization
+                if e.production_date:
+                    s.production_date = e.production_date
+                s.notes = e.notes
+            else:
+                static[key] = e
+    except Exception:
+        pass
+    return list(static.values())
+
+
+def get_segment_capacity_dynamic(segment: str) -> tuple[float, float, float]:
+    """返回: (当前产能总计, 在建产能总计, 产能利用率) — 动态合并数据"""
+    all_cap = get_all_capacity()
+    entries = [e for e in all_cap if e.segment == segment]
+    if not entries:
+        return 0, 0, 0
+    current = sum(e.capacity_current * e.utilization for e in entries)
+    building = sum(e.capacity_building for e in entries)
+    avg_util = sum(e.utilization for e in entries) / len(entries)
+    return current, building, avg_util
+
+
+def get_supply_demand_gap_dynamic(segment: str, months_ahead: int = 0) -> dict:
+    """带动态数据更新的供需缺口计算"""
+    all_cap = get_all_capacity()
+    entries = [e for e in all_cap if e.segment == segment]
+    if not entries:
+        return {"segment": segment, "supply": 0, "demand": 0, "gap": 0, "gap_pct": 0, "status": "均衡", "months_ahead": months_ahead}
+
+    current = sum(e.capacity_current * e.utilization for e in entries)
+    building = sum(e.capacity_building for e in entries)
+    if months_ahead == 0:
+        supply = current
+    else:
+        supply = current + building * min(months_ahead / 18, 1.0)
+
+    phases = [p for p in CYCLE_PHASES if p.segment == segment and p.end_period is None]
+    if phases:
+        gap_ratio = phases[-1].gap_ratio
+    else:
+        gap_ratio = 0
+
+    demand = supply / (1 + gap_ratio) if gap_ratio > -0.99 else supply * 1.2
+    gap = supply - demand
+    gap_pct = gap / demand * 100 if demand > 0 else 0
+
+    return {
+        "segment": segment,
+        "supply": round(supply, 2),
+        "demand": round(demand, 2),
+        "gap": round(gap, 2),
+        "gap_pct": round(gap_pct, 1),
+        "status": "紧缺" if gap > 0 else ("过剩" if gap < -supply * 0.05 else "均衡"),
+        "months_ahead": months_ahead,
+    }
+
+
 def print_supply_alert():
-    """打印未来3/6/9/12个月供需缺口预警"""
-    all_segs = list(set(e.segment for e in CAPACITY_DATABASE))
+    """打印未来3/6/9/12个月供需缺口预警 — 使用动态数据"""
+    all_segs = list(set(e.segment for e in get_all_capacity()))
 
     print(f"\n{'=' * 70}")
-    print(f"⚠️  供需缺口预警 (供给 - 需求)")
+    print(f"⚠️  供需缺口预警 (供给 - 需求) [新闻实时更新]")
     print(f"{'=' * 70}")
     print(f"{'环节':<14} {'当前':<10} {'3个月':<10} {'6个月':<10} {'9个月':<10} {'12个月':<10} {'趋势'}")
     print(f"{'─' * 70}")
@@ -188,10 +262,9 @@ def print_supply_alert():
     for seg in all_segs:
         rows = []
         for months in [0, 3, 6, 9, 12]:
-            gap = get_supply_demand_gap(seg, months)
+            gap = get_supply_demand_gap_dynamic(seg, months)
             rows.append(gap)
 
-        # 判断趋势
         gaps = [r["gap_pct"] for r in rows]
         if gaps[-1] > gaps[0] + 5:
             trend = "🔴 缺口扩大"
@@ -213,13 +286,13 @@ def print_supply_alert():
 
 def print_capacity_timeline():
     """打印未来1年内新产能投产时间线"""
+    all_cap = get_all_capacity()
+    building = [e for e in all_cap if e.capacity_building > 0]
+
     print(f"\n{'=' * 70}")
     print(f"🏗️  未来1年新产能投产时间线")
     print(f"{'─' * 70}")
 
-    # 收集所有在建产能
-    building = [e for e in CAPACITY_DATABASE if e.capacity_building > 0]
-    # 按投产时间排序
     def sort_key(e):
         pd = e.production_date or "2030Q1"
         y, q = pd.split("Q")
@@ -230,9 +303,9 @@ def print_capacity_timeline():
     print(f"{'公司':<10} {'环节':<12} {'产品':<16} {'新产能':<12} {'预计投产':<10} {'缺口状态'}")
     print(f"{'─' * 70}")
     for e in building:
-        gap = get_supply_demand_gap(e.segment, 0)
+        gap = get_supply_demand_gap_dynamic(e.segment, 0)
         icon = "🔴" if gap["status"] == "紧缺" else ("🟢" if gap["status"] == "均衡" else "🔵")
-        print(f"  {e.company:<8} {e.segment:<12} {e.product:<16} {e.capacity_building}{e.capacity_unit:<10} {e.production_date:<10} {icon}{gap['gap_pct']:+.0f}%")
+        print(f"  {e.company:<8} {e.segment:<12} {e.product:<16} {e.capacity_building}{e.capacity_unit:<10} {e.production_date or '?':<10} {icon}{gap['gap_pct']:+.0f}%")
 
 
 # ──────────────────────────────────────────────────────────
@@ -240,23 +313,18 @@ def print_capacity_timeline():
 # ──────────────────────────────────────────────────────────
 
 def generate_full_report():
-    """生成完整供需分析报告"""
-    all_segs = list(set(e.segment for e in CAPACITY_DATABASE))
+    """生成完整供需分析报告 — 动态数据版"""
+    all_segs = list(set(e.segment for e in get_all_capacity()))
 
     print("=" * 70)
     print("📊 半导体+光通信 供需产业链全景分析")
     print("=" * 70)
 
-    # 1. 当前供需缺口
     print_supply_alert()
-
-    # 2. 未来1年新产能
     print_capacity_timeline()
 
-    # 3. 各环节周期历史
     for seg in all_segs:
         print_cycle_history(seg)
-        analyze_segment_stocks(seg)
 
 
 if __name__ == "__main__":

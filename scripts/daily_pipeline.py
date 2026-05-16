@@ -119,6 +119,16 @@ def run_daily_pipeline(notify: bool = False, dry_run: bool = False) -> dict:
     if cfg.get("knowledge.graph.enabled", False):
         from scripts.build_knowledge_graph import run as build_kg_run
         result["knowledge_graph"] = _run_step("knowledge_graph", build_kg_run, timings, errors)
+        # 从新闻提取产能数据，更新供需库
+        from scripts.extract_capacity_from_news import extract_capacity_from_news, save_to_db
+        def _extract_capacity():
+            import sqlite3
+            from data_store.db import get_connection as db_conn
+            with db_conn() as conn:
+                extracted = extract_capacity_from_news(conn)
+                saved = save_to_db(extracted, conn)
+            return {"extracted": len(extracted), "saved": saved}
+        result["capacity_extract"] = _run_step("capacity_extract", _extract_capacity, timings, errors)
         # sync_llmwiki 依赖 graph 完成
         from scripts.sync_llmwiki import sync
         def _sync_wiki():
