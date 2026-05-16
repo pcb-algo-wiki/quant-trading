@@ -35,6 +35,11 @@ US_STOCKS = {
     "INTC":  ("英特尔",      "AI芯片", "困境反转/代工"),
     "GOOGL": ("谷歌",        "AI应用", "AI Search/云"),
     "TSLA":  ("特斯拉",      "新能源/AI", "FSD/机器人"),
+
+    # SpaceX IPO 产业链
+    "RKLB":  ("Rocket Lab",    "商业航天", "火箭发射/SpaceX竞争"),
+    "ASTS":  ("AST SpaceMobile","商业航天", "卫星宽带/Starlink竞争"),
+    "PL":    ("Planet Labs",   "商业航天", "卫星遥感/数据服务"),
 }
 
 
