@@ -318,6 +318,121 @@ def run_ensemble_backtest(start="20230101", end="20241231"):
                 print(f"  {name:<25} ERROR: {str(e)[:30]}")
 
 
+def run_long_alpha_backtest(start: str = "20230101", end: str = "20241231",
+                            symbol: str = "510300") -> None:
+    """长线价值 Alpha 策略回测。"""
+    from strategies.value_long import ValueLongStrategy
+
+    print(f"\n{'='*65}")
+    print(f"  长线价值 Alpha 策略 ({start} ~ {end})")
+    print(f"{'='*65}")
+
+    df = fetch_etf(symbol, start, end)
+    if len(df) < 50:
+        print(f"  {symbol}: 数据不足（{len(df)}条）")
+        return
+
+    strat = ValueLongStrategy(symbol=symbol)
+    signals = strat.generate(df)
+    result = BacktestEngine(initial_capital=100_000).run(df, signals)
+    m = result["metrics"]
+
+    buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+    print(f"  标的: {symbol}  数据: {len(df)}条")
+    print(f"  {'指标':<14} {'策略':>10} {'买入持有':>10}")
+    print(f"  {'-'*38}")
+    print(f"  {'总收益':<14} {m['total_return']*100:>9.2f}% {buyhold*100:>9.2f}%")
+    print(f"  {'年化收益':<14} {m['annual_return']*100:>9.2f}%")
+    print(f"  {'最大回撤':<14} {m['max_drawdown']*100:>9.2f}%")
+    print(f"  {'夏普比率':<14} {m['sharpe_ratio']:>10.2f}")
+    print(f"  {'交易次数':<14} {m['num_trades']:>10}")
+    composite = signals["composite_score"].iloc[0]
+    print(f"  {'复合因子分':<14} {composite:>10.3f}")
+
+
+def run_event_driven_backtest(start: str = "20230101", end: str = "20241231",
+                              symbol: str = "510300") -> None:
+    """事件驱动策略回测。"""
+    from strategies.event_driven import EventDrivenStrategy
+
+    print(f"\n{'='*65}")
+    print(f"  事件驱动策略 ({start} ~ {end})")
+    print(f"{'='*65}")
+
+    df = fetch_etf(symbol, start, end)
+    if len(df) < 50:
+        print(f"  {symbol}: 数据不足（{len(df)}条）")
+        return
+
+    strat = EventDrivenStrategy(symbol=symbol)
+    signals = strat.generate(df)
+    result = BacktestEngine(initial_capital=100_000).run(df, signals)
+    m = result["metrics"]
+
+    buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+    print(f"  标的: {symbol}  数据: {len(df)}条")
+    print(f"  {'指标':<14} {'策略':>10} {'买入持有':>10}")
+    print(f"  {'-'*38}")
+    print(f"  {'总收益':<14} {m['total_return']*100:>9.2f}% {buyhold*100:>9.2f}%")
+    print(f"  {'年化收益':<14} {m['annual_return']*100:>9.2f}%")
+    print(f"  {'最大回撤':<14} {m['max_drawdown']*100:>9.2f}%")
+    print(f"  {'夏普比率':<14} {m['sharpe_ratio']:>10.2f}")
+    print(f"  {'交易次数':<14} {m['num_trades']:>10}")
+
+
+def run_regime_portfolio_backtest(start: str = "20230101", end: str = "20241231",
+                                  symbol: str = "510300") -> None:
+    """Regime 调度组合回测（长线 Alpha + 事件驱动 + MVO + Regime）。"""
+    import numpy as np
+    from strategies.value_long import ValueLongStrategy
+    from strategies.event_driven import EventDrivenStrategy
+    from portfolio.optimizer import MVOptimizer
+    from portfolio.regime_gating import RegimeDetector
+
+    print(f"\n{'='*65}")
+    print(f"  Regime 组合策略 ({start} ~ {end})")
+    print(f"{'='*65}")
+
+    df = fetch_etf(symbol, start, end)
+    if len(df) < 50:
+        print(f"  {symbol}: 数据不足（{len(df)}条）")
+        return
+
+    # 生成两策略信号
+    va_signals = ValueLongStrategy(symbol=symbol).generate(df)
+    ev_signals = EventDrivenStrategy(symbol=symbol).generate(df)
+
+    # Regime 检测
+    detector = RegimeDetector()
+    regime = detector.detect(df["close"], avg_sentiment=0.0)
+    weights = detector.get_weights(regime)
+
+    # 合成仓位（加权平均取整）
+    w_va = weights["long_alpha"]
+    w_ev = weights["event_driven"]
+    combined_pos = (va_signals["position"] * w_va + ev_signals["position"] * w_ev)
+    combined_pos = (combined_pos >= 0.5).astype(int)
+    combined_sig = combined_pos.diff().fillna(0).astype(int)
+
+    signals = df.copy()
+    signals["position"] = combined_pos.values
+    signals["signal"] = combined_sig.values
+
+    result = BacktestEngine(initial_capital=100_000).run(df, signals)
+    m = result["metrics"]
+
+    buyhold = (df["close"].iloc[-1] / df["close"].iloc[0]) - 1
+    print(f"  标的: {symbol}  Regime: {regime}")
+    print(f"  长线 Alpha 权重: {w_va:.2f}  事件驱动权重: {w_ev:.2f}")
+    print(f"  {'指标':<14} {'策略':>10} {'买入持有':>10}")
+    print(f"  {'-'*38}")
+    print(f"  {'总收益':<14} {m['total_return']*100:>9.2f}% {buyhold*100:>9.2f}%")
+    print(f"  {'年化收益':<14} {m['annual_return']*100:>9.2f}%")
+    print(f"  {'最大回撤':<14} {m['max_drawdown']*100:>9.2f}%")
+    print(f"  {'夏普比率':<14} {m['sharpe_ratio']:>10.2f}")
+    print(f"  {'交易次数':<14} {m['num_trades']:>10}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="量化交易系统 v2")
     parser.add_argument("--strategy", default="all", help="策略名")
@@ -339,10 +454,19 @@ def main():
     parser.add_argument("--train-ml", action="store_true", help="训练ML基线并评估")
     parser.add_argument("--ml-backtest", action="store_true", help="运行ML策略回测")
     parser.add_argument("--daily-pipeline", action="store_true", help="运行一站式每日流水线")
+    parser.add_argument("--long-alpha", action="store_true", help="长线价值 Alpha 策略回测")
+    parser.add_argument("--event-driven", action="store_true", help="事件驱动策略回测")
+    parser.add_argument("--regime-portfolio", action="store_true", help="Regime 组合策略回测")
 
     args = parser.parse_args()
 
-    if args.update_data:
+    if args.long_alpha:
+        run_long_alpha_backtest(args.start, args.end, args.symbol)
+    elif args.event_driven:
+        run_event_driven_backtest(args.start, args.end, args.symbol)
+    elif args.regime_portfolio:
+        run_regime_portfolio_backtest(args.start, args.end, args.symbol)
+    elif args.update_data:
         from scripts.update_data_store import run as update_data_store_run
         print(update_data_store_run())
     elif args.update_knowledge:
