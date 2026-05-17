@@ -246,3 +246,239 @@ class PipelineRunRepository:
             """,
             (status, _now(), error, run_id),
         )
+
+
+# ===== Phase 13.2 — 基本面 =====
+
+class FinancialReportRepository:
+    FIELDS = (
+        "revenue", "net_profit", "gross_margin", "rd_expense",
+        "operating_cash_flow", "free_cash_flow", "capex",
+        "total_assets", "total_equity", "roe", "roic",
+    )
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_dataframe(self, source: str, reports: pd.DataFrame) -> int:
+        if reports is None or reports.empty:
+            return 0
+        cols = ["symbol", "report_period", *self.FIELDS, "source", "ingested_at"]
+        placeholders = ",".join(["?"] * len(cols))
+        sql = f"INSERT OR IGNORE INTO financial_reports ({','.join(cols)}) VALUES ({placeholders})"
+        now = _now()
+        inserted = 0
+        for _, row in reports.iterrows():
+            values = [str(row["symbol"]), str(row["report_period"])]
+            for f in self.FIELDS:
+                v = row.get(f)
+                values.append(float(v) if v is not None and not pd.isna(v) else None)
+            values.extend([source, now])
+            cur = self.conn.execute(sql, values)
+            inserted += cur.rowcount
+        return inserted
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            f"SELECT symbol, report_period, {','.join(self.FIELDS)}, source "
+            "FROM financial_reports WHERE symbol = ? ORDER BY report_period",
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+# ===== Phase 13.3 — 增量数据源 =====
+
+class _GenericUpsertRepo:
+    """通用 INSERT OR IGNORE 工具，子类指定 TABLE / COLUMNS / KEY_FIELDS。"""
+    TABLE: str = ""
+    COLUMNS: tuple[str, ...] = ()
+    DATE_FIELDS: tuple[str, ...] = ()
+    HAS_SOURCE: bool = True
+    HAS_INGESTED: bool = True
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def _coerce(self, field: str, value: Any) -> Any:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return None
+        if field in self.DATE_FIELDS:
+            return _to_date_str(value)
+        return value
+
+    def upsert_dataframe(self, rows: pd.DataFrame, source: str | None = None) -> int:
+        if rows is None or rows.empty:
+            return 0
+        all_cols = list(self.COLUMNS)
+        if self.HAS_SOURCE:
+            all_cols.append("source")
+        if self.HAS_INGESTED:
+            all_cols.append("ingested_at")
+        placeholders = ",".join(["?"] * len(all_cols))
+        sql = f"INSERT OR IGNORE INTO {self.TABLE} ({','.join(all_cols)}) VALUES ({placeholders})"
+        now = _now()
+        inserted = 0
+        for _, row in rows.iterrows():
+            values = [self._coerce(c, row.get(c)) for c in self.COLUMNS]
+            if self.HAS_SOURCE:
+                values.append(source or "unknown")
+            if self.HAS_INGESTED:
+                values.append(now)
+            cur = self.conn.execute(sql, values)
+            inserted += cur.rowcount
+        return inserted
+
+
+class NorthboundFlowRepository(_GenericUpsertRepo):
+    TABLE = "northbound_flow"
+    COLUMNS = ("symbol", "date", "hold_shares", "hold_market_cap", "hold_ratio")
+    DATE_FIELDS = ("date",)
+
+    def upsert_dataframe(self, rows: pd.DataFrame, source: str | None = None) -> int:  # type: ignore[override]
+        return super().upsert_dataframe(rows, source=source)
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT symbol, date, hold_shares, hold_market_cap, hold_ratio, source "
+            "FROM northbound_flow WHERE symbol = ? ORDER BY date",
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+class DragonTigerRepository(_GenericUpsertRepo):
+    TABLE = "dragon_tiger"
+    COLUMNS = ("symbol", "date", "reason", "buy_amount", "sell_amount", "net_amount")
+    DATE_FIELDS = ("date",)
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT symbol, date, reason, buy_amount, sell_amount, net_amount, source "
+            "FROM dragon_tiger WHERE symbol = ? ORDER BY date",
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+class BlockTradeRepository(_GenericUpsertRepo):
+    TABLE = "block_trades"
+    COLUMNS = ("symbol", "date", "price", "volume", "amount", "buyer", "seller")
+    DATE_FIELDS = ("date",)
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT symbol, date, price, volume, amount, buyer, seller, source "
+            "FROM block_trades WHERE symbol = ? ORDER BY date",
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+class EtfHoldingRepository(_GenericUpsertRepo):
+    TABLE = "etf_holdings"
+    COLUMNS = ("etf_symbol", "date", "stock_symbol", "weight", "shares")
+    DATE_FIELDS = ("date",)
+
+    def fetch(self, etf_symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT etf_symbol, date, stock_symbol, weight, shares, source "
+            "FROM etf_holdings WHERE etf_symbol = ? ORDER BY date, stock_symbol",
+            (etf_symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+class IndustryClassificationRepository:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_dataframe(self, rows: pd.DataFrame) -> int:
+        if rows is None or rows.empty:
+            return 0
+        sql = """
+        INSERT OR IGNORE INTO industry_classification
+        (symbol, scheme, level1, level2, level3, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        now = _now()
+        inserted = 0
+        for _, row in rows.iterrows():
+            cur = self.conn.execute(
+                sql,
+                (
+                    str(row["symbol"]),
+                    str(row.get("scheme", "default") or "default"),
+                    row.get("level1"),
+                    row.get("level2"),
+                    row.get("level3"),
+                    now,
+                ),
+            )
+            inserted += cur.rowcount
+        return inserted
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT symbol, scheme, level1, level2, level3 "
+            "FROM industry_classification WHERE symbol = ?",
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+    def fetch_by_industry(self, level1: str) -> list[dict]:
+        cur = self.conn.execute(
+            "SELECT symbol, scheme, level1, level2, level3 "
+            "FROM industry_classification WHERE level1 = ?",
+            (level1,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+# ===== Phase 13.4 — data lineage =====
+
+class DataProvenanceRepository:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def record(
+        self,
+        dataset: str,
+        source: str,
+        symbol_count: int | None = None,
+        row_count: int | None = None,
+        pipeline_run_id: str | None = None,
+        extra: dict | None = None,
+    ) -> str:
+        import json
+        prov_id = uuid.uuid4().hex
+        self.conn.execute(
+            """
+            INSERT INTO data_provenance
+            (prov_id, dataset, source, symbol_count, row_count, pipeline_run_id, extra_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                prov_id, dataset, source,
+                symbol_count, row_count, pipeline_run_id,
+                json.dumps(extra, ensure_ascii=False) if extra else None,
+                _now(),
+            ),
+        )
+        return prov_id
+
+    def fetch(self, dataset: str | None = None) -> list[dict]:
+        if dataset:
+            cur = self.conn.execute(
+                "SELECT prov_id, dataset, source, symbol_count, row_count, "
+                "pipeline_run_id, extra_json, created_at "
+                "FROM data_provenance WHERE dataset = ? ORDER BY created_at DESC",
+                (dataset,),
+            )
+        else:
+            cur = self.conn.execute(
+                "SELECT prov_id, dataset, source, symbol_count, row_count, "
+                "pipeline_run_id, extra_json, created_at "
+                "FROM data_provenance ORDER BY created_at DESC"
+            )
+        return [dict(row) for row in cur.fetchall()]
