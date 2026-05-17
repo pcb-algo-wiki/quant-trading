@@ -2,8 +2,8 @@
 node_id: robotics
 type: industry
 name: 机器人/具身智能
-sources: []
-updated_at: 2026-05-16T14:25:56
+sources: ["56cec3900ef07a71"]
+updated_at: 2026-05-17T05:24:29
 generator: rule
 confidence: 1.0
 ---
@@ -28,4 +28,7 @@ confidence: 1.0
 - **汇川技术**
 - **禾川科技**
 - **科沃斯**
+
+## 证据来源 (1 条)
+- `[aggregated]` Apple Intel Foundry Link Puts ASML Growth And Valuation In Focus Apple Intel Fou...
 

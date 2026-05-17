@@ -2,7 +2,7 @@
 node_id: SK_Hynix
 type: company
 name: SK海力士
-sources: ["b8abdd4abcaabeb1", "4dfdc4a8e79c910e", "7b98292a5dfe9b52", "064a9ed4461d9c70", "6949092751fd8935", "35842a43d761aaaa"]
+sources: ["b8abdd4abcaabeb1", "4dfdc4a8e79c910e", "7b98292a5dfe9b52", "064a9ed4461d9c70", "6949092751fd8935", "35842a43d761aaaa", "8eb1c00000330d22", "18f48ee11cc12cb1"]
 updated_at: 2026-05-16T14:25:47
 generator: rule
 confidence: 1.0
@@ -15,7 +15,7 @@ confidence: 1.0
 ## 所属行业 (1 个)
 - memory
 
-## 证据来源 (6 条)
+## 证据来源 (8 条)
 - `[个股(AMD)]` 玻璃基板加速量产信号？SK海力士兄弟公司拟加码旗下工厂 AMD、AWS均为潜在客户 韩国经济日报等媒体补充称，Absolix生产的样品正在接受包括AMD和亚马逊...
 - `[个股(INTC)]` 韩股年内暴涨77%领跑全球！SK海力士等股价大涨，在韩留学生开户炒股，业内提醒风险 金女士称，尽管没有踩中本轮韩国股市上涨的行情，但她同样看好半导体行业，之前就...
 - `[个股(GOOGL)]` 谷歌将在韩建设全球首个AI园区 DeepMind拟深化与三星、SK海力士、LG等合作 韩国总统政策顾问金容范周一表示，韩国与谷歌GOOGL.US)已达成协议，将...

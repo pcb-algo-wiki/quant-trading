@@ -3,7 +3,7 @@ node_id: optical_comms
 type: industry
 name: 光通信
 sources: ["3299d4f1dea6300f", "1f672d85f9e11b35", "19985a3801ca5589", "5132cfeaef94cecc", "79609b7e25c822a7", "69ca104b6ef75636", "26f43e00c4c83dd1", "4f7c5dd0bf80dd6c", "c685795945305162", "31c981cdf7de542f", "51188e5494621a41", "33db17e3137d340c", "555724021bfcb37d", "1f2ca683ef24e222", "062d5bc1dedfa305", "86069f3f79658bcc"]
-updated_at: 2026-05-16T14:25:56
+updated_at: 2026-05-17T05:24:29
 generator: rule
 confidence: 1.0
 ---

@@ -3,7 +3,7 @@ node_id: gpu
 type: industry
 name: GPU
 sources: ["eb247f535dcbfcdc", "76c3e0f40e001958", "55fc82955b5fa837", "d57374441f0ecdb9", "6adbbe222d9e0bcb", "fabc9a96e2563117", "2b75bae347546a7f", "29e0ebaef7197ffa", "dffa45d3265e9f28", "346a25a518b505c4", "46dd9e457fd1671b"]
-updated_at: 2026-05-16T14:25:56
+updated_at: 2026-05-17T05:24:29
 generator: rule
 confidence: 1.0
 ---

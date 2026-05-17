@@ -3,7 +3,7 @@ node_id: memory
 type: industry
 name: 存储/HBM
 sources: ["fef858ccd7081df3", "34eb315c98fb1ba7", "117610a580f266b9", "f6796596012755ec", "fcb0385daace040e", "5f2c2ba5d82768fd", "0fa83cd27507c9a3", "1a1ce17d92bdbaa3", "7f4c3ce360cfa059", "4ce8671f54f1d4c1", "f6de5b4d9eaa0d71", "bcf713cbc83e3d17", "c0003efbc5c83062", "232236b551a093db"]
-updated_at: 2026-05-16T14:25:56
+updated_at: 2026-05-17T05:24:29
 generator: rule
 confidence: 1.0
 ---

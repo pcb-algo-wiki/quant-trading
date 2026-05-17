@@ -3,7 +3,7 @@ node_id: physical_ai
 type: industry
 name: 物理AI
 sources: []
-updated_at: 2026-05-16T14:25:56
+updated_at: 2026-05-17T05:24:29
 generator: rule
 confidence: 1.0
 ---
