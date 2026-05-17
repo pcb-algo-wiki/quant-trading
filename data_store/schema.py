@@ -149,6 +149,31 @@ SCHEMA_STATEMENTS = [
     );
     """,
     "CREATE INDEX IF NOT EXISTS idx_reconcile_date ON reconcile_reports(date);",
+    # Phase 13.1 — 公司行为与复权因子
+    """
+    CREATE TABLE IF NOT EXISTS corporate_actions (
+        symbol TEXT NOT NULL,
+        ex_date TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        cash_dividend REAL NOT NULL DEFAULT 0.0,
+        split_ratio REAL NOT NULL DEFAULT 1.0,
+        source TEXT NOT NULL,
+        ingested_at TEXT NOT NULL,
+        PRIMARY KEY (symbol, ex_date, action_type, source)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_corp_actions_symbol ON corporate_actions(symbol, ex_date);",
+    """
+    CREATE TABLE IF NOT EXISTS adj_factors (
+        symbol TEXT NOT NULL,
+        date TEXT NOT NULL,
+        adj_factor REAL NOT NULL,
+        source TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (symbol, date, source)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_adj_factors_symbol ON adj_factors(symbol, date);",
 ]
 
 

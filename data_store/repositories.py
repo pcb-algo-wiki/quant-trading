@@ -124,6 +124,104 @@ class NewsRepository:
         return inserted
 
 
+class CorporateActionRepository:
+    """公司行为（分红/送转/配股）。
+
+    action_type: 'dividend' | 'split' | 'rights'
+    cash_dividend: 每股现金分红（税前）
+    split_ratio: 除权后流通股扩张比例（送 2 股 → 1.2）
+    """
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_dataframe(self, source: str, actions: pd.DataFrame) -> int:
+        if actions is None or actions.empty:
+            return 0
+        sql = """
+        INSERT OR IGNORE INTO corporate_actions
+        (symbol, ex_date, action_type, cash_dividend, split_ratio, source, ingested_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        now = _now()
+        inserted = 0
+        for _, row in actions.iterrows():
+            cur = self.conn.execute(
+                sql,
+                (
+                    str(row["symbol"]),
+                    _to_date_str(row["ex_date"]),
+                    str(row["action_type"]),
+                    float(row.get("cash_dividend", 0.0) or 0.0),
+                    float(row.get("split_ratio", 1.0) or 1.0),
+                    source,
+                    now,
+                ),
+            )
+            inserted += cur.rowcount
+        return inserted
+
+    def fetch(self, symbol: str) -> list[dict]:
+        cur = self.conn.execute(
+            """
+            SELECT symbol, ex_date, action_type, cash_dividend, split_ratio, source
+            FROM corporate_actions
+            WHERE symbol = ?
+            ORDER BY ex_date
+            """,
+            (symbol,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+class AdjFactorRepository:
+    """复权因子缓存表（按 symbol+date+source 唯一）。"""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_dataframe(self, symbol: str, source: str, factors: pd.DataFrame) -> int:
+        if factors is None or factors.empty:
+            return 0
+        sql = """
+        INSERT OR REPLACE INTO adj_factors
+        (symbol, date, adj_factor, source, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        """
+        now = _now()
+        # 用 SELECT changes() 判定新增 vs 替换不靠谱，先查存量再插入
+        existing = {
+            row[0]
+            for row in self.conn.execute(
+                "SELECT date FROM adj_factors WHERE symbol = ? AND source = ?",
+                (symbol, source),
+            ).fetchall()
+        }
+        inserted = 0
+        for _, row in factors.iterrows():
+            date_str = _to_date_str(row["date"])
+            self.conn.execute(
+                sql,
+                (symbol, date_str, float(row["adj_factor"]), source, now),
+            )
+            if date_str not in existing:
+                inserted += 1
+        return inserted
+
+    def fetch(self, symbol: str, start: str | None = None, end: str | None = None) -> list[dict]:
+        sql = "SELECT symbol, date, adj_factor, source FROM adj_factors WHERE symbol = ?"
+        params: list = [symbol]
+        if start:
+            sql += " AND date >= ?"
+            params.append(start)
+        if end:
+            sql += " AND date <= ?"
+            params.append(end)
+        sql += " ORDER BY date"
+        cur = self.conn.execute(sql, params)
+        return [dict(row) for row in cur.fetchall()]
+
+
 class PipelineRunRepository:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
